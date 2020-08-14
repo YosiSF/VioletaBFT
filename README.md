@@ -1,0 +1,2 @@
+# VioletaBFT
+ Byzantine Fault Tolerant relativistic WAL consensus protocol for EinsteinDB written in Haskell compiling to Rust. VioletaBFT is a PoET embedded pBFT (optimistic timestamp) written with relativistic programming principles: Merkle Trees with Critical Sections; VioletaBFT employs Post-Quantum Cryptographic Digital Signature and Key Exchange protocols for Enterprises. Community Edition contains a Vanila VioletaBFT inspired by zcash, GHOST, and HoneyBadger.
