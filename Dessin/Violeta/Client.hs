@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Dessin.Violeta.CausetC.Client
+module Dessin.Violeta.Client
 (   runVioletaBftClient
 	), where
 
