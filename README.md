@@ -1,6 +1,6 @@
 # VioletaBFT
 
-VioletaBFT (Spanish: Colour, Name (F); popular figures: First Female Presidentof Nicaragua and Central America.) is a relativistic pbft protocol which represents A mission critical, scalable, OLTP Query planning. In designing VioletaBFT, we applied similar techniques and decomposition in order to preserve the simplicity and understandability of Raft, Paxos, Tendermint, Casper, etc. but we use several modifications and additions that provide Byzantine fault tolerance.
+VioletaBFT (Spanish: Colour, Name (F); popular figures: First Female Presidentof Nicaragua and Central America.) is a relativistic pbft protocol which represents A mission critical, scalable, OLTP Query plan vectorization with dependency injection. In designing VioletaBFT, we applied similar techniques and decomposition in order to preserve the simplicity and understandability of Raft, Paxos, Tendermint, Casper, etc. but we use several modifications and additions that provide Byzantine fault tolerance.
 
 1) Message signatures: VioletaBFT uses digital signatures extensively to authenticate messages and verify their in- tegrity. For example, the leader replicates client messages along with the client signatures. This prevents a Byzantine leader from modifying the message contents or forging messages. Client public keys are kept separate from replica public keys to enforce that only clients can send new valid commands, and only replicas can send valid Raft RPCs.
 
