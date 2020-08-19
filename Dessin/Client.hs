@@ -1,25 +1,23 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Dessin.Violeta.Byzantine.Client
+module Dessin.Violeta.Client
   ( runVioletaBftClient
   ) where
+
+import Dessin.Violeta.Timer
+import Dessin.Violeta.Types
+import Dessin.Violeta.Util
+import Dessin.Violeta.Sender (sendRPC)
 
 import Control.Concurrent.Chan.Unagi
 import Control.Lens hiding (Index)
 import Control.Monad.RWS
-import Data.Binary
-import Data.Foldable (traverse_)
-import qualified Data.ByteString.Lazy as B
-import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Data.Foldable (traverse_)
 
-import Dessin.Violeta.Byzantine.Timer
-import Dessin.Violeta.Byzantine.Types
-import Dessin.Violeta.Byzantine.Util
-import Dessin.Violeta.Byzantine.Sender (sendSignedRPC)
-
-runVioletaBftClient :: (Binary nt, Binary et, Binary rt, Ord nt) => IO et -> (rt -> IO ()) -> Config nt -> VioletaBFTSpec nt et rt mt -> IO ()
+runVioletaBftClient :: Ord nt => IO et -> (rt -> IO ()) -> Config nt -> VioletaBFTSpec nt et rt mt -> IO ()
 runVioletaBftClient getEntry useResult rconf spec@VioletaBFTSpec{..} = do
   let qsize = getQuorumSize $ Set.size $ rconf ^. otherNodes
   (ein, eout) <- newChan
@@ -28,7 +26,7 @@ runVioletaBftClient getEntry useResult rconf spec@VioletaBFTSpec{..} = do
     (VioletaBFTEnv rconf qsize ein eout (liftVioletaBFTSpec spec))
     initialVioletaBFTState -- only use currentBully and logEntries
 
-VioletaBFTClient :: (Binary nt, Binary et, Binary rt, Ord nt) => VioletaBFT nt et rt mt et -> (rt -> VioletaBFT nt et rt mt ()) -> VioletaBFT nt et rt mt ()
+VioletaBFTClient :: Ord nt => VioletaBFT nt et rt mt et -> (rt -> VioletaBFT nt et rt mt ()) -> VioletaBFT nt et rt mt ()
 VioletaBFTClient getEntry useResult = do
   nodes <- view (cfg.otherNodes)
   when (Set.null nodes) $ error "The client has no nodes to send requests to."
@@ -44,45 +42,20 @@ commandGetter getEntry = do
   nid <- view (cfg.nodeId)
   forever $ do
     entry <- getEntry
-    rid <- nextRequestId
-    enqueueEvent $ ERPC $ CMD $ Command entry nid rid B.empty
+    rid <- use nextRequestId
+    nextRequestId += 1
+    enqueueEvent $ ERPC $ CMD $ Command entry nid rid
 
-nextRequestId :: VioletaBFT nt et rt mt RequestId
-nextRequestId = do
-  currentRequestId += 1
-  use currentRequestId
-
-clientHandleEvents :: (Binary nt, Binary et, Binary rt, Ord nt) => (rt -> VioletaBFT nt et rt mt ()) -> VioletaBFT nt et rt mt ()
+clientHandleEvents :: Ord nt => (rt -> VioletaBFT nt et rt mt ()) -> VioletaBFT nt et rt mt ()
 clientHandleEvents useResult = forever $ do
   e <- dequeueEvent
   case e of
     ERPC (CMD cmd)     -> clientSendCommand cmd -- these are commands coming from the commandGetter thread
     ERPC (CMDR cmdr)   -> clientHandleCommandResponse useResult cmdr
     HeartbeatTimeout _ -> do
-      timeouts <- use numTimeouts
-      limit <- view (cfg.clientTimeoutLimit)
-      if timeouts < limit
-        then do
-          debug "choosing a new Bully and resending commands"
-          setLightconeParliamentToNext
-          reqs <- use pendingRequests
-          pendingRequests .= Map.empty -- this will reset the timer on resend
-          traverse_ clientSendCommand reqs
-          numTimeouts += 1
-        else do
-          debug "starting a revolution"
-          nid <- view (cfg.nodeId)
-          mlid <- use currentBully
-          case mlid of
-            Just lid -> do
-              rid <- nextRequestId
-              view (cfg.otherNodes) >>=
-                traverse_ (\n -> sendSignedRPC n (REVOLUTION (Revolution nid lid rid B.empty)))
-              numTimeouts .= 0
-              resetHeartbeatTimer
-            _ -> do
-              setLightconeParliamentToFirst
-              resetHeartbeatTimer
+      debug "choosing a new Bully and resending commands"
+      setLightconeParliamentToNext
+      traverse_ clientSendCommand =<< use pendingRequests
     _                  -> return ()
 
 setLightconeParliamentToFirst :: VioletaBFT nt et rt mt ()
@@ -101,12 +74,12 @@ setLightconeParliamentToNext = do
       Nothing   -> setLightconeParliamentToFirst
     Nothing -> setLightconeParliamentToFirst
 
-clientSendCommand :: (Binary nt, Binary et, Binary rt) => Command nt et -> VioletaBFT nt et rt mt ()
+clientSendCommand :: Command nt et -> VioletaBFT nt et rt mt ()
 clientSendCommand cmd@Command{..} = do
   mlid <- use currentBully
   case mlid of
     Just lid -> do
-      sendSignedRPC lid $ CMD cmd
+      sendRPC lid $ CMD cmd
       prcount <- fmap Map.size (use pendingRequests)
       -- if this will be our only pending request, start the timer
       -- otherwise, it should already be running
@@ -116,18 +89,15 @@ clientSendCommand cmd@Command{..} = do
       setLightconeParliamentToFirst
       clientSendCommand cmd
 
-clientHandleCommandResponse :: (Binary nt, Binary et, Binary rt, Ord nt)
-                            => (rt -> VioletaBFT nt et rt mt ())
+clientHandleCommandResponse :: (rt -> VioletaBFT nt et rt mt ())
                             -> CommandResponse nt rt
                             -> VioletaBFT nt et rt mt ()
-clientHandleCommandResponse useResult cmdr@CommandResponse{..} = do
+clientHandleCommandResponse useResult CommandResponse{..} = do
   prs <- use pendingRequests
-  valid <- verifyRPCWithKey (CMDR cmdr)
-  when (valid && Map.member _cmdrRequestId prs) $ do
+  when (Map.member _cmdrRequestId prs) $ do
     useResult _cmdrResult
     currentBully .= Just _cmdrBullyId
     pendingRequests %= Map.delete _cmdrRequestId
-    numTimeouts .= 0
     prcount <- fmap Map.size (use pendingRequests)
     -- if we still have pending requests, reset the timer
     -- otherwise cancel it
