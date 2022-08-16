@@ -5,8 +5,8 @@ use std::iter;
 use inlineHeapHasOID::{InlineHeapHasOIDStr, intern};
 
 #[derive(Clone, Debug, Default, Eq, Hash)]
-pub struct TypeConstructor<Ident = InlineHeapHasOIDStr> {
-    pub name : Ident,
+pub struct TypeConstructor<SolitonID = InlineHeapHasOIDStr> {
+    pub name : SolitonID,
     pub kind : Kind
 }
 
@@ -25,18 +25,18 @@ pub struct TypeVariable {
     pub age: isize
 }
 #[derive(Clone, Debug, Eq, Hash)]
-pub enum Type<Ident = InlineHeapHasOIDStr> {
+pub enum Type<SolitonID = InlineHeapHasOIDStr> {
     Variable(TypeVariable),
-    Constructor(TypeConstructor<Ident>),
-    Application(Box<Type<Ident>>, Box<Type<Ident>>),
+    Constructor(TypeConstructor<SolitonID>),
+    Application(Box<Type<SolitonID>>, Box<Type<SolitonID>>),
     Generic(TypeVariable)
 }
 #[derive(Clone, Debug, Default, Hash)]
-pub struct Qualified<T, Ident = InlineHeapHasOIDStr> {
-    pub constraints: Vec<Constraint<Ident>>,
+pub struct Qualified<T, SolitonID = InlineHeapHasOIDStr> {
+    pub constraints: Vec<Constraint<SolitonID>>,
     pub value: T
 }
-pub fn qualified<Ident>(constraints: Vec<Constraint<Ident>>, typ: Type<Ident>) -> Qualified<Type<Ident>, Ident> {
+pub fn qualified<SolitonID>(constraints: Vec<Constraint<SolitonID>>, typ: Type<SolitonID>) -> Qualified<Type<SolitonID>, SolitonID> {
     Qualified { constraints: constraints, value: typ }
 }
 
@@ -189,13 +189,13 @@ pub fn tuple_type(n: usize) -> (String, Type) {
         let var = TypeVariable::new_var_kind(intern(&c.to_string()), Kind::Star.clone());
         var_list.push(Type::Generic(var));
     }
-    let ident = tuple_name(n);
-    let mut typ = Type::new_op(intern(&ident), var_list);
+    let SolitonID = tuple_name(n);
+    let mut typ = Type::new_op(intern(&SolitonID), var_list);
     for i in (0..n).rev() {
         let c = (('a' as u8) + i as u8) as char;
         typ = function_type_(Type::Generic(TypeVariable::new(intern(&c.to_string()))), typ);
     }
-    (ident, typ)
+    (SolitonID, typ)
 }
 ///Constructs a list type which holds elements of type 'typ'
 pub fn list_type(typ: Type) -> Type {
@@ -238,8 +238,8 @@ pub fn unit() -> Type {
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Constraint<Ident = InlineHeapHasOIDStr> {
-    pub class : Ident,
+pub struct Constraint<SolitonID = InlineHeapHasOIDStr> {
+    pub class : SolitonID,
     pub variables : Vec<TypeVariable>
 }
 

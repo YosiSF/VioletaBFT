@@ -526,7 +526,7 @@ pub enum VMResult {
 }
 
 macro_rules! vm_error {
-    ($($pre: ident :: $post: ident),+) => {
+    ($($pre: SolitonID :: $post: SolitonID),+) => {
 
     #[derive(Debug)]
     pub enum VMError {
@@ -551,6 +551,19 @@ macro_rules! vm_error {
             }
         }
     }
+    }
+}
+
+vm_error!(
+    SolitonID :: SolitonID,
+
+    );
+
+
+
+
+
+
 
     impl From<io::Error> for VMError {
         fn from(e: io::Error) -> Self { VMError::Io(e) }

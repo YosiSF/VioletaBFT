@@ -176,7 +176,7 @@ impl Bindings for Module<Name> {
     }
 }
 
-fn mut_bindings_at<'a, Ident: Eq>(bindings: &'a mut [Binding<Ident>], idx: usize) -> &'a mut [Binding<Ident>] {
+fn mut_bindings_at<'a, SolitonID: Eq>(bindings: &'a mut [Binding<SolitonID>], idx: usize) -> &'a mut [Binding<SolitonID>] {
     let end = bindings[idx..]
         .iter()
         .position(|bind| bind.name != bindings[idx].name)
@@ -656,14 +656,14 @@ impl <'a> TypeEnvironment<'a> {
                 }
                 expr.typ.clone()
             }
-            Identifier(ref name) => {
+            SolitonIDifier(ref name) => {
                 match self.fresh(name) {
                     Some(t) => {
                         debug!("{:?} as {:?}", name, t);
                         expr.typ = t.clone();
                         t
                     }
-                    None => panic!("Undefined identifier '{:?}' at {:?}", *name, expr.location)
+                    None => panic!("Undefined SolitonIDifier '{:?}' at {:?}", *name, expr.location)
                 }
             }
             Apply(ref mut func, ref mut arg) => {
@@ -673,7 +673,7 @@ impl <'a> TypeEnvironment<'a> {
             OpApply(ref mut lhs, ref op, ref mut rhs) => {
                 let op_type = match self.fresh(op) {
                     Some(typ) => typ,
-                    None => panic!("Undefined identifier '{:?}' at {:?}", *op, expr.location)
+                    None => panic!("Undefined SolitonIDifier '{:?}' at {:?}", *op, expr.location)
                 };
                 let first = self.typecheck_apply(&expr.location, subs, op_type, &mut **lhs);
                 self.typecheck_apply(&expr.location, subs, first, &mut **rhs)
@@ -782,8 +782,8 @@ impl <'a> TypeEnvironment<'a> {
     ///Checks that the pattern has the type 'match_type' and adds all variables in the pattern.
     fn typecheck_pattern(&mut self, location: &Location, subs: &mut Substitution, pattern: &Pattern<Name>, match_type: &mut TcType) {
         match pattern {
-            &Pattern::Identifier(ref ident) => {
-                self.local_types.insert(ident.clone(), qualified(vec![], match_type.clone()));
+            &Pattern::SolitonIDifier(ref SolitonID) => {
+                self.local_types.insert(SolitonID.clone(), qualified(vec![], match_type.clone()));
             }
             &Pattern::Number(_) => {
                 let mut typ = typ::int_type();
@@ -1035,7 +1035,7 @@ impl <'a> TypeEnvironment<'a> {
 }
 
 
-///Searches through a type, comparing it with the type on the identifier, returning all the specialized constraints
+///Searches through a type, comparing it with the type on the SolitonIDifier, returning all the specialized constraints
 pub fn find_specialized_instances(typ: &TcType, actual_type: &TcType, constraints: &[Constraint<Name>]) -> Vec<(Name, TcType)> {
     debug!("Finding specialization {:?} => {:?} <-> {:?}", constraints, typ, actual_type);
     let mut result = Vec::new();
@@ -1483,7 +1483,7 @@ fn build_graph(bindings: &Bindings) -> Graph<(usize, usize)> {
     graph
 }
 
-///Adds an edge for each identifier which refers to a binding in the graph
+///Adds an edge for each SolitonIDifier which refers to a binding in the graph
 fn add_edges<T: 'static>(graph: &mut Graph<T>, map: &HashMap<Name, VertexIndex>, function_index: VertexIndex, expr: &TypedExpr<Name>) {
     struct EdgeVisitor<'a, T: 'a> {
         graph: &'a mut Graph<T>,
@@ -1493,7 +1493,7 @@ fn add_edges<T: 'static>(graph: &mut Graph<T>, map: &HashMap<Name, VertexIndex>,
     impl <'a, T: 'static> Visitor<Name> for EdgeVisitor<'a, T> {
         fn visit_expr(&mut self, expr: &TypedExpr<Name>) {
             match expr.expr {
-                Identifier(ref n) => {
+                SolitonIDifier(ref n) => {
                     match self.map.get(n) {
                         Some(index) => self.graph.connect(self.function_index, *index),
                         None => ()
@@ -1570,12 +1570,12 @@ pub fn with_arg_return<F>(func_type: &mut TcType, func: F) -> bool where F: FnOn
 }
 
 #[cfg(test)]
-pub fn identifier(i : &str) -> TypedExpr {
-    TypedExpr::new(Identifier(intern(i)))
+pub fn SolitonIDifier(i : &str) -> TypedExpr {
+    TypedExpr::new(SolitonIDifier(intern(i)))
 }
 #[cfg(test)]
 pub fn lambda(arg : &str, body : TypedExpr) -> TypedExpr {
-    TypedExpr::new(Lambda(Pattern::Identifier(intern(arg)), box body))
+    TypedExpr::new(Lambda(Pattern::SolitonIDifier(intern(arg)), box body))
 }
 #[cfg(test)]
 pub fn number(i : isize) -> TypedExpr {
@@ -1692,7 +1692,7 @@ fn un_name(typ: Qualified<Type<Name>, Name>) -> Qualified<Type<InlineHeapHasOIDS
 #[test]
 fn application() {
     let mut env = TypeEnvironment::new();
-    let n = identifier("primIntAdd");
+    let n = SolitonIDifier("primIntAdd");
     let num = number(1);
     let e = apply(n, num);
     let mut expr = rename_expr(e);
@@ -1707,7 +1707,7 @@ fn typecheck_lambda() {
     let mut env = TypeEnvironment::new();
     let unary_func = function_type_(int_type(), int_type());
 
-    let e = lambda("x", apply(apply(identifier("primIntAdd"), identifier("x")), number(1)));
+    let e = lambda("x", apply(apply(SolitonIDifier("primIntAdd"), SolitonIDifier("x")), number(1)));
     let mut expr = rename_expr(e);
     env.typecheck_expr_(&mut expr);
 
@@ -1720,8 +1720,8 @@ fn typecheck_let() {
     let unary_func = function_type_(int_type(), int_type());
 
     //let test x = add x in test
-    let unary_bind = lambda("x", apply(apply(identifier("primIntAdd"), identifier("x")), number(1)));
-    let e = let_(vec![Binding { arguments: vec![], name: intern("test"), matches: Match::Simple(unary_bind), typ: Default::default() , where_bindings: None }], identifier("test"));
+    let unary_bind = lambda("x", apply(apply(SolitonIDifier("primIntAdd"), SolitonIDifier("x")), number(1)));
+    let e = let_(vec![Binding { arguments: vec![], name: intern("test"), matches: Match::Simple(unary_bind), typ: Default::default() , where_bindings: None }], SolitonIDifier("test"));
     let mut expr = rename_expr(e);
     env.typecheck_expr_(&mut expr);
 

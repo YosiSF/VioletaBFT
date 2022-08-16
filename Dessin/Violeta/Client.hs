@@ -1,9 +1,48 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+
 module Dessin.Violeta.Byzantine.Client
   ( runVioletaBftClient
   ) where
+
+
+
+import           Control.Concurrent.STM
+import           Control.Lens
+import           Control.Monad.Reader
+import           Control.Monad.State
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL8
+import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
+import qualified Data.ByteString.UTF8 as BSU
+
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import qualified Data.List as L
+import qualified Data.Map as M
+import qualified Data.Set as S
+
+#ifdef DEBUG
+import qualified Data.Text.Lazy as TLightconeParliamentToNext
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
+import qualified Data.Aeson.TH as Aeson
+import qualified Data.Aeson.Encode as Aeson
+import qualified Data.Aeson.Encode.Pretty as Aeson
+import qualified Data.Aeson.Encode.Pretty as Aeson
+
+
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.Text.Lazy.IO as TL
+import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.Text.Encoding as T
+
+
 
 import Control.Concurrent.Chan.Unagi
 import Control.Lens hiding (Index)
@@ -18,6 +57,15 @@ import Dessin.Violeta.Byzantine.Timer
 import Dessin.Violeta.Byzantine.Types
 import Dessin.Violeta.Byzantine.Util
 import Dessin.Violeta.Byzantine.Sender (sendSignedRPC)
+
+
+
+
+
+
+
+
+
 
 runVioletaBftClient :: (Binary nt, Binary et, Binary rt, Ord nt) => IO et -> (rt -> IO ()) -> Config nt -> VioletaBFTSpec nt et rt mt -> IO ()
 runVioletaBftClient getEntry useResult rconf spec@VioletaBFTSpec{..} = do
@@ -38,6 +86,32 @@ VioletaBFTClient getEntry useResult = do
   pendingRequests .= Map.empty
   clientHandleEvents useResult
 
+
+  -- send a request to the current bully
+  when (currentBully `Set.member` pendingRequests) $ do
+    sendRequest currentBully
+    pendingRequests %= Map.delete currentBully
+  -- send a request to the next bully
+  when (nextBully `Set.member` pendingRequests) $ do
+    sendRequest nextBully
+    pendingRequests %= Map.delete nextBully
+  -- send a request to the previous bully
+  when (previousBully `Set.member` pendingRequests) $ do
+    sendRequest previousBully
+    pendingRequests %= Map.delete previousBully
+  -- send a request to the next node
+  when (next `Set.member` pendingRequests) $ do
+    sendRequest next
+    pendingRequests %= Map.delete next
+  -- send a request to the previous node
+  when (previous `Set.member` pendingRequests) $ do
+    sendRequest previous
+    pendingRequests %= Map.delete previous
+  -- send a request to the next node
+  when (next `Set.member` pendingRequests) $ do
+    sendRequest next
+    pendingRequests %= Map.delete next
+
 -- get commands with getEntry and put them on the event queue to be sent
 commandGetter :: VioletaBFT nt et rt mt et -> VioletaBFT nt et rt mt ()
 commandGetter getEntry = do
@@ -51,6 +125,11 @@ nextRequestId :: VioletaBFT nt et rt mt RequestId
 nextRequestId = do
   currentRequestId += 1
   use currentRequestId
+
+sendRequest :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> VioletaBFT nt et rt mt ()
+sendRequest nid = do
+  pendingRequests %= Map.insert nid ()
+  sendSignedRPC nid
 
 clientHandleEvents :: (Binary nt, Binary et, Binary rt, Ord nt) => (rt -> VioletaBFT nt et rt mt ()) -> VioletaBFT nt et rt mt ()
 clientHandleEvents useResult = forever $ do
@@ -134,3 +213,35 @@ clientHandleCommandResponse useResult cmdr@CommandResponse{..} = do
     if (prcount > 0)
       then resetHeartbeatTimer
       else cancelTimer
+
+sendSignedRPC :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> SignedRPC nt et rt -> VioletaBFT nt et rt mt ()
+return ()
+sendSignedRPC nid (SignedRPC rpc) = do
+  nid' <- view (cfg.nodeId)
+  let sig = sign nid' rpc
+  sendRPC nid (SignedRPC rpc) sig
+  return ()
+
+sendRPC :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> RPC nt et rt -> Signature nt -> VioletaBFT nt et rt mt ()
+sendRPC nid (RPC rpc) sig = do
+  nid' <- view (cfg.nodeId)
+  let msg = B.concat [encode nid', encode rpc, encode sig]
+  sendMessage nid msg
+  return ()
+
+
+clientHandleMessage :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> B.ByteString -> VioletaBFT nt et rt mt ()
+clientHandleMessage nid msg = do
+  rpc <- getRPC nid msg
+  case rpc of
+    Just (RPC rpc) -> do
+      valid <- verifyRPCWithKey (RPC rpc)
+      when valid $ do
+        case rpc of
+          REVOLUTION (Revolution nid lid rid result) -> do
+            currentBully .= Just lid
+            pendingRequests %= Map.delete rid
+            numTimeouts .= 0
+            resetHeartbeatTimer
+          _ -> return ()
+    _ -> return ()

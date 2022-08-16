@@ -1,4 +1,43 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+
+
+
+
+
 
 module Dessin.Violeta.Byzantine.Handler
   ( handleEvents
@@ -25,6 +64,41 @@ import Dessin.Violeta.Byzantine.Sender
 import Dessin.Violeta.Byzantine.Util
 import Dessin.Violeta.Byzantine.Role
 import Dessin.Violeta.Byzantine.Timer
+where
+  handleEvents :: Sender -> IO ()
+  {-# INLINE handleEvents #-}
+  handleEvents s = do
+    s' <- send
+    case s' of
+      Nothing -> return ()
+      Just s'' -> handleEvents s''
+    where
+      send = do
+        e <- receiveEvent s
+        case e of
+          Nothing -> return Nothing
+          Just e' -> do
+            handleEvent e'
+            return $ Just s
+                 {-# INLINE handleEvents #-}
+      handleEvent e = do
+          case e' offline
+            of
+              Nothing -> return ()
+              Just e'' -> do
+                handleEvent e''
+                return ()
+case e' of
+
+
+
+lightcone :: (Monad m, Binary a) => a -> m ()
+lightcone = send . Lightcone
+
+
+timecone :: (Monad m, Binary a)=> a -> m()
+timecone = send . Timecone nodeId otherNodes
+{-# INLINE lightcone #-}
 
 handleEvents :: (Binary nt, Binary et, Binary rt, Ord nt) => VioletaBFT nt et rt mt ()
 handleEvents = forever $ do

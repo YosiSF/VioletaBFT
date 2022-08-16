@@ -3,6 +3,32 @@ import Control.Concurrent.MVar (takeMVar)
 import Control.Monad (foldM, forM, forM_, replicateM, when)
 import Data.List ((\\), foldl1', group, intercalate)
 import Debug.Trace (trace)
+import System.Environment (getArgs)
+import System.IO (hFlush, stdout)
+import System.Random (randomRIO)
+import qualified Data.Map as M
+import qualified Data.Set as S
+import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector.Unboxed.Mutable as MVU
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Algorithms.Intro as VAI
+
+
+
+
+import qualified Data.Vector.Algorithms.Intro as VAIR
+import qualified Data.Vector.Algorithms.Intro.Select as VAIS
+import qualified Data.Vector.Algorithms.Intro.Partial as VAIP
+
+
+
+
+
+
+doubleCopy :: (VG.Vector v a, VG.Vector v b) => v a -> v b
+doubleCopy = VG.convert
 
 import RP ( RP, RPE, RPR, RPW, RPRead, ThreadState(..), tid, runRP, forkRP, joinRP, synchronizeRP, threadDelayRP, readRP, writeRP
           , SRef, readSRef, writeSRef, newSRef, copySRef )
@@ -45,8 +71,8 @@ readThread ls n head =
       res = foldM trav st [1..n]
   in res `seq` res
 
-testList :: RP s (SRef s (RPList s Char))
-testList = do
+preQueueLoadedAppendLogFromVioletaBFT :: RP s (SRef s (RPList s Char))
+preQueueLoadedAppendLogFromVioletaBFT = do
   tail <- newSRef Nil
   c4   <- newSRef $ Cons 'E' tail
   c3   <- newSRef $ Cons 'D' c4
@@ -88,8 +114,8 @@ moveNodeForward i n head = do
 moveBforward :: SRef s (RPList s a) -> RPW s ()
 moveBforward head = do
   (Cons a ra)    <- readSRef head  -- [A,B,C,D,E]
-  bn@(Cons b rb) <- readSRef ra
-  (Cons c rc)    <- readSRef rb
+  bn@(Cons b rBFT) <- readSRef ra
+  (Cons c rc)    <- readSRef rBFT
   (Cons d rd)    <- readSRef rc
   -- duplicate the reference to E
   rd'            <- copySRef rd
@@ -101,14 +127,14 @@ moveBforward head = do
 
 moveCback :: SRef s (RPList s a) -> RPW s ()
 moveCback head = do
-  (Cons a rb)    <- readSRef head
-  (Cons b rc)    <- readSRef rb
+  (Cons a rBFT)    <- readSRef head
+  (Cons b rc)    <- readSRef rBFT
   -- duplicate pointer to B
-  rb'            <- copySRef rb
+  rBFT'            <- copySRef rBFT
   (Cons c rd)    <- readSRef rc
   de             <- readSRef rd
   -- link in a new C after A
-  writeSRef rb $ Cons c rb'
+  writeSRef rBFT $ Cons c rBFT'
   -- any reader who starts during this grace period 
   -- sees either "ABCD" or "ACBCD"
   synchronizeRP
@@ -119,14 +145,14 @@ moveCback head = do
 
 moveCbackNoSync :: SRef s (RPList s a) -> RPW s ()
 moveCbackNoSync head = do
-  (Cons a rb)    <- readSRef head
-  (Cons b rc)    <- readSRef rb
+  (Cons a rBFT)    <- readSRef head
+  (Cons b rc)    <- readSRef rBFT
   -- duplicate reference to B
-  rb'            <- copySRef rb
+  rBFT'            <- copySRef rBFT
   (Cons c rd)    <- readSRef rc
   de             <- readSRef rd
   -- link in a new C after A
-  writeSRef rb $ Cons c rb'
+  writeSRef rBFT $ Cons c rBFT'
   -- any reader who starts after this write is issued
   -- sees either "ABCD" or "ACBCD"
   --synchronizeRP -- this operation is NOT safe to omit, 
@@ -142,7 +168,7 @@ main = do
   rsts <- replicateM n $ do
     runRP $ do
       -- initialize list
-      head <- testList
+      head <- preQueueLoadedAppendLogFromVioletaBFT
       -- spawn 8 readers, each records 10000 snapshots of the list
       --rts  <- replicateM 8 $ forkRP $ replicateM 400000 $ readRP $ readSection head
       rts  <- replicateM 29 $ forkRP $ readThread "ABCDE" 400000 head

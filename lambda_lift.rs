@@ -4,6 +4,210 @@ use core::*;
 use core::Expr::*;
 use renamer::{name, NameSupply};
 use renamer::typ::*;
+use renamer::typ::Type::*;
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Var {
+    Local(usize),
+    Global(String),
+}
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Ty {
+    Int,
+    Bool,
+    Unit,
+    Fun(Box<Ty>, Box<Ty>),
+    Tuple(Vec<Ty>),
+    Var(Var),
+}
+
+
+impl Ty {
+    pub fn is_bool(&self) -> bool {
+        match self {
+            Bool => true,
+            _ => false,
+        }
+        }
+    pub fn is_int(&self) -> bool {
+        match self {
+            Int => true,
+            _ => false,
+        }
+        }
+    pub fn is_unit(&self) -> bool {
+        match self {
+            Unit => true,
+            _ => false,
+        }
+        }
+    pub fn is_fun(&self) -> bool {
+        match self {
+            Fun(_, _) => true,
+            _ => false,
+        }
+        }
+    pub fn is_tuple(&self) -> bool {
+        match self {
+            Tuple(_) => true,
+            _ => false,
+        }
+        }
+    pub fn is_var(&self) -> bool {
+        match self {
+            Var(_) => true,
+            _ => false,
+        }
+        }
+    }
+
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Ty::Int => "int".to_string(),
+            Ty::Bool => "bool".to_string(),
+            Ty::Unit => "unit".to_string(),
+            Ty::F64 => "double".to_string(),
+            Ty::Char => "char".to_string(),
+            Ty::String => "string".to_string(),
+            Ty::Chararray => "chararray".to_string(),
+            Ty::TForm => "TForm".to_string(),
+
+            Ty::Fun(t1, t2) => {
+                let mut s = "".to_string();
+                s.push_str("(".to_string());
+                s.push_str(t1.to_string().as_str());
+                s.push_str(" -> ".to_string());
+                s.push_str(t2.to_string().as_str());
+                s.push_str(")".to_string());
+                s
+            }
+            Ty::Foreign(i) => i.to_string(),
+            }
+        }
+
+    pub fn is_equal(&self, other: &Ty) -> bool {
+        match (self, other) {
+            (Ty::Int, Ty::Int) => true,
+            (Ty::Bool, Ty::Bool) => true,
+            (Ty::Unit, Ty::Unit) => true,
+            (Ty::F64, Ty::F64) => true,
+            (Ty::Char, Ty::Char) => true,
+            (Ty::String, Ty::String) => true,
+            (Ty::Byte, Ty::Byte) => true,
+            (Ty::Chararray, Ty::Chararray) => true,
+            (Ty::TForm, Ty::TForm) => true,
+            (Ty::Array, Ty::Array) => true,
+            (Ty::Vector, Ty::Vector) => true,
+            (Ty::Any, Ty::Any) => true,
+            (Ty::Int32, Ty::Int32) => true,
+            (Ty::Int64, Ty::Int64) => true,
+            (Ty::Int128, Ty::Int128) => true,
+            (Ty::Int256, Ty::Int256) => true,
+            (Ty::Int512, Ty::Int512) => true,
+            (Ty::Uint8, Ty::Uint8) => true,
+            (Ty::Uint16, Ty::Uint16) => true,
+            (Ty::Uint32, Ty::Uint32) => true,
+            (Ty::Uint64, Ty::Uint64) => true,
+            (Ty::Uint128, Ty::Uint128) => true,
+            (Ty::Uint256, Ty::Uint256) => true,
+            (Ty::Float32, Ty::Float32) => true,
+            (Ty::Float64, Ty::Float64) => true,
+            (Ty::Float128, Ty::Float128) => true,
+            (Ty::String, Ty::String) => true,
+
+            (Ty::Fun(t1, t2), Ty::Fun(t1', t2')) => {
+                t1.is_equal(t1') && t2.is_equal(t2')
+            }
+            (Ty::Tuple(t1), Ty::Tuple(t2)) => {
+                t1.len() == t2.len() && t1.iter().zip(t2.iter()).all(|(t1, t2)| t1.is_equal(t2))
+            }
+            (Ty::Var(t1), Ty::Var(t2)) => {
+                t1 == t2
+            }
+            _ => false,
+            }
+        }
+    }
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Expr {
+    Int(i64),
+    Bool(bool),
+
+        }
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Ty {
+    Int,
+    Bool,
+    Unit,
+    Fun(Box<Ty>, Box<Ty>),
+    Tuple(Vec<Ty>),
+    Var(Var),
+}
+
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Arg {
+    Val(Var),
+    Ref(Var),
+    }
+}
+
+impl Arg {
+    pub fn ty(&self) -> Ty {
+        match self {
+            Arg::Val(v) => v.ty(),
+            Arg::Ref(v) => v.ty(),
+            }
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum Expr {
+    Int(i64),
+    Bool(bool),
+    Unit,
+    Var(Var),
+    If(Box<Expr>, Box<Expr>, Box<Expr>),
+    Let(Var, Box<Expr>, Box<Expr>),
+    LetRec(Var, Box<Expr>, Box<Expr>),
+    Literal(Literal),
+    App(Box<Expr>, Box<Expr>),
+    Tuple(Vec<Expr>),
+    Match(Box<Expr>, Box<Expr>),
+    Lambda(Vec<Arg>, Box<Expr>),
+    LetTuple(Vec<Var>, Box<Expr>, Box<Expr>),
+
+    For(Box<Expr>, Box<Expr>, Box<Expr>),
+    While(Box<Expr>, Box<Expr>),
+    Break,
+    Continue,
+    Return(Box<Expr>),
+    Try(Box<Expr>, Box<Expr>),
+    Throw(Box<Expr>),
+    Catch(Box<Expr>, Box<Expr>),
+    TryCatch(Box<Expr>, Box<Expr>),
+    Call(Box<Expr>, Box<Expr>),
+    Index(Box<Expr>, Box<Expr>, Box<Expr>),
+    Slice(Box<Expr>, Box<Expr>),
+    Field(Box<Expr>, Box<Expr>),
+    }
+}
+
+
+        }
+    }
+}
 
 pub type TypeAndStr = Id;
 
@@ -17,7 +221,7 @@ struct FreeVariables {
 
 fn each_pattern_variables(pattern: &Pattern<Id>, f: &mut FnMut(&Name)) {
     match *pattern {
-        Pattern::Identifier(ref ident) => (*f)(&ident.name),
+        Pattern::SolitonIDifier(ref SolitonID) => (*f)(&SolitonID.name),
         Pattern::Constructor(_, ref patterns) => {
             for p in patterns.iter() {
                 (*f)(&p.name);
@@ -36,8 +240,8 @@ impl FreeVariables {
 //@free_vars The free variables for the returned expression
 fn free_variables(&mut self, variables: &mut HashMap<Name, isize>, free_vars: &mut HashMap<Name, TypeAndStr>, expr: &mut Expr<TypeAndStr>) {
     match *expr {
-        Identifier(ref mut i) => {
-            //If the identifier is a local, add it to the free variables
+        SolitonIDifier(ref mut i) => {
+            //If the SolitonIDifier is a local, add it to the free variables
             if variables.get(&i.name).map(|x| *x > 0).unwrap_or(false) {
                 free_vars.insert(i.name.clone(), i.clone());
             }
@@ -114,10 +318,10 @@ fn abstract_(&mut self, free_vars: &HashMap<Name, TypeAndStr>, input_expr: &mut 
                 name: id.clone(),
                 expression: rhs
             };
-            Let(vec![bind], box Identifier(id))
+            Let(vec![bind], box SolitonIDifier(id))
         };
         for (_, var) in free_vars.iter() {
-            e = Apply(box e, box Identifier(var.clone()));
+            e = Apply(box e, box SolitonIDifier(var.clone()));
         }
         *input_expr = e
     }
@@ -238,7 +442,7 @@ mod tests {
     fn all_uniques() {
         let mut visitor = CheckUniques { found: HashSet::new() };
         let mut parser = Parser::new(
-r"add x y = 2
+            r"add x y = 2
 test = 3.14
 test2 x =
     let
@@ -259,15 +463,31 @@ test2 x =
     }
 
     struct CheckAbstract {
-        count: isize
+        found: HashSet<Id>
     }
+
+    impl Visitor<Id> for CheckAbstract {
+        fn visit_expr(&mut self, expr: &Expr<Id>) {
+            match expr {
+                &Lambda(ref arg, _) => {
+                    assert!(self.found.insert(arg.name.clone()));
+                }
+                _ => ()
+            }
+            walk_expr(self, expr)
+        }
+    }
+}
+
+
+
 
     fn get_let<'a>(expr: &'a Expr<Id>, args: &mut Vec<InlineHeapHasOIDStr>) -> &'a Expr<Id> {
         match expr {
             &Apply(ref f, ref arg) => {
                 match **arg {
-                    Identifier(ref i) => args.push(i.name.name),
-                    _ => panic!("Expected identifier as argument")
+                    SolitonIDifier(ref i) => args.push(i.name.name),
+                    _ => panic!("Expected SolitonIDifier as argument")
                 }
                 get_let(&**f, args)
             }
@@ -284,7 +504,7 @@ test2 x =
                         //Push the argument of the function itself
                         args.push(intern("x"));
                         assert!(check_args(&binds[0].expression, args.as_ref()));
-                        assert_eq!(Identifier(binds[0].name.clone()), **body);
+                        assert_eq!(SolitonIDifier(binds[0].name.clone()), **body);
                     }
                     _ => assert!(false, "Expected Let, found {:?}", bind.expression)
                 }
@@ -296,7 +516,7 @@ test2 x =
                     &Let(ref binds, ref body) => {
                         args.push(intern("y"));
                         assert!(check_args(&binds[0].expression, args.as_ref()));
-                        assert_eq!(Identifier(binds[0].name.clone()), **body);
+                        assert_eq!(SolitonIDifier(binds[0].name.clone()), **body);
                     }
                     _ => assert!(false, "Expected Let")
                 }

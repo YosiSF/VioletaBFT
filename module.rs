@@ -8,74 +8,74 @@ pub use types::*;
 use self::Expr::*;
 
 #[derive(Clone, Debug)]
-pub struct Module<Ident = InlineHeapHasOIDStr> {
-    pub name : Ident,
-    pub imports: Vec<Import<Ident>>,
-    pub bindings : Vec<Binding<Ident>>,
-    pub type_declarations : Vec<TypeDeclaration<Ident>>,
-    pub classes : Vec<Class<Ident>>,
-    pub instances : Vec<Instance<Ident>>,
-    pub data_definitions : Vec<DataDefinition<Ident>>,
-    pub newtypes : Vec<Newtype<Ident>>,
-    pub fixity_declarations : Vec<FixityDeclaration<Ident>>
+pub struct Module<SolitonID = InlineHeapHasOIDStr> {
+    pub name : SolitonID,
+    pub imports: Vec<Import<SolitonID>>,
+    pub bindings : Vec<Binding<SolitonID>>,
+    pub type_declarations : Vec<TypeDeclaration<SolitonID>>,
+    pub classes : Vec<Class<SolitonID>>,
+    pub instances : Vec<Instance<SolitonID>>,
+    pub data_definitions : Vec<DataDefinition<SolitonID>>,
+    pub newtypes : Vec<Newtype<SolitonID>>,
+    pub fixity_declarations : Vec<FixityDeclaration<SolitonID>>
 }
 
 #[derive(Clone, Debug)]
-pub struct Import<Ident> {
+pub struct Import<SolitonID> {
     pub module: InlineHeapHasOIDStr,
     //None if 'import Name'
     //Some(names) if 'import Name (names)'
-    pub imports: Option<Vec<Ident>>
+    pub imports: Option<Vec<SolitonID>>
 }
 
 #[derive(Clone, Debug)]
-pub struct Class<Ident = InlineHeapHasOIDStr> {
-    pub constraints: Vec<Constraint<Ident>>,
-    pub name : Ident,
+pub struct Class<SolitonID = InlineHeapHasOIDStr> {
+    pub constraints: Vec<Constraint<SolitonID>>,
+    pub name : SolitonID,
     pub variable : TypeVariable,
-    pub declarations : Vec<TypeDeclaration<Ident>>,
-    pub bindings: Vec<Binding<Ident>>
+    pub declarations : Vec<TypeDeclaration<SolitonID>>,
+    pub bindings: Vec<Binding<SolitonID>>
 }
 
 #[derive(Clone, Debug)]
-pub struct Instance<Ident = InlineHeapHasOIDStr> {
-    pub bindings : Vec<Binding<Ident>>,
-    pub constraints : Vec<Constraint<Ident>>,
-    pub typ : Type<Ident>,
-    pub classname : Ident
+pub struct Instance<SolitonID = InlineHeapHasOIDStr> {
+    pub bindings : Vec<Binding<SolitonID>>,
+    pub constraints : Vec<Constraint<SolitonID>>,
+    pub typ : Type<SolitonID>,
+    pub classname : SolitonID
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Binding<Ident = InlineHeapHasOIDStr> {
-    pub name : Ident,
-    pub arguments: Vec<Pattern<Ident>>,
-    pub matches: Match<Ident>,
-    pub where_bindings : Option<Vec<Binding<Ident>>>,
-    pub typ: Qualified<Type<Ident>, Ident>
+pub struct Binding<SolitonID = InlineHeapHasOIDStr> {
+    pub name : SolitonID,
+    pub arguments: Vec<Pattern<SolitonID>>,
+    pub matches: Match<SolitonID>,
+    pub where_bindings : Option<Vec<Binding<SolitonID>>>,
+    pub typ: Qualified<Type<SolitonID>, SolitonID>
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Constructor<Ident = InlineHeapHasOIDStr> {
-    pub name : Ident,
-    pub typ : Qualified<Type<Ident>, Ident>,
+pub struct Constructor<SolitonID = InlineHeapHasOIDStr> {
+    pub name : SolitonID,
+    pub typ : Qualified<Type<SolitonID>, SolitonID>,
     pub tag : isize,
     pub arity : isize
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct DataDefinition<Ident = InlineHeapHasOIDStr> {
-    pub constructors : Vec<Constructor<Ident>>,
-    pub typ : Qualified<Type<Ident>, Ident>,
+pub struct DataDefinition<SolitonID = InlineHeapHasOIDStr> {
+    pub constructors : Vec<Constructor<SolitonID>>,
+    pub typ : Qualified<Type<SolitonID>, SolitonID>,
     pub parameters : HashMap<InlineHeapHasOIDStr, isize>,
-    pub deriving: Vec<Ident>
+    pub deriving: Vec<SolitonID>
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct Newtype<Ident = InlineHeapHasOIDStr> {
+pub struct Newtype<SolitonID = InlineHeapHasOIDStr> {
     pub typ: Qualified<Type>,
-    pub constructor_name: Ident,
-    pub constructor_type: Qualified<Type<Ident>, Ident>,
-    pub deriving: Vec<Ident>
+    pub constructor_name: SolitonID,
+    pub constructor_type: Qualified<Type<SolitonID>, SolitonID>,
+    pub deriving: Vec<SolitonID>
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -86,16 +86,16 @@ pub enum Assoc {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-pub struct FixityDeclaration<Ident = InlineHeapHasOIDStr> {
+pub struct FixityDeclaration<SolitonID = InlineHeapHasOIDStr> {
     pub assoc: Assoc,
     pub precedence: isize,
-    pub operators: Vec<Ident>
+    pub operators: Vec<SolitonID>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct TypeDeclaration<Ident = InlineHeapHasOIDStr> {
-    pub typ : Qualified<Type<Ident>, Ident>,
-    pub name : Ident
+pub struct TypeDeclaration<SolitonID = InlineHeapHasOIDStr> {
+    pub typ : Qualified<Type<SolitonID>, SolitonID>,
+    pub name : SolitonID
 }
 impl <T : fmt::Display + AsRef<str>> fmt::Display for TypeDeclaration<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -105,9 +105,9 @@ impl <T : fmt::Display + AsRef<str>> fmt::Display for TypeDeclaration<T> {
 
 
 #[derive(Clone, Debug)]
-pub struct TypedExpr<Ident = InlineHeapHasOIDStr> {
-    pub expr : Expr<Ident>,
-    pub typ : Type<Ident>,
+pub struct TypedExpr<SolitonID = InlineHeapHasOIDStr> {
+    pub expr : Expr<SolitonID>,
+    pub typ : Type<SolitonID>,
     pub location : Location
 }
 
@@ -133,26 +133,26 @@ impl TypedExpr {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Alternative<Ident = InlineHeapHasOIDStr> {
-    pub pattern : Located<Pattern<Ident>>,
-    pub matches: Match<Ident>,
-    pub where_bindings : Option<Vec<Binding<Ident>>>
+pub struct Alternative<SolitonID = InlineHeapHasOIDStr> {
+    pub pattern : Located<Pattern<SolitonID>>,
+    pub matches: Match<SolitonID>,
+    pub where_bindings : Option<Vec<Binding<SolitonID>>>
 }
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Eq)]
-pub enum Pattern<Ident = InlineHeapHasOIDStr> {
+pub enum Pattern<SolitonID = InlineHeapHasOIDStr> {
     Number(isize),
-    Identifier(Ident),
-    Constructor(Ident, Vec<Pattern<Ident>>),
+    SolitonIDifier(SolitonID),
+    Constructor(SolitonID, Vec<Pattern<SolitonID>>),
     WildCard
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Match<Ident = InlineHeapHasOIDStr> {
-    Guards(Vec<Guard<Ident>>),
-    Simple(TypedExpr<Ident>)
+pub enum Match<SolitonID = InlineHeapHasOIDStr> {
+    Guards(Vec<Guard<SolitonID>>),
+    Simple(TypedExpr<SolitonID>)
 }
-impl <Ident> Match<Ident> {
+impl <SolitonID> Match<SolitonID> {
     pub fn location<'a>(&'a self) -> &'a Location {
         match *self {
             Match::Guards(ref gs) => &gs[0].predicate.location,
@@ -162,16 +162,16 @@ impl <Ident> Match<Ident> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Guard<Ident = InlineHeapHasOIDStr> {
-    pub predicate: TypedExpr<Ident>,
-    pub expression: TypedExpr<Ident>
+pub struct Guard<SolitonID = InlineHeapHasOIDStr> {
+    pub predicate: TypedExpr<SolitonID>,
+    pub expression: TypedExpr<SolitonID>
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum DoBinding<Ident = InlineHeapHasOIDStr> {
-    DoLet(Vec<Binding<Ident>>),
-    DoBind(Located<Pattern<Ident>>, TypedExpr<Ident>),
-    DoExpr(TypedExpr<Ident>)
+pub enum DoBinding<SolitonID = InlineHeapHasOIDStr> {
+    DoLet(Vec<Binding<SolitonID>>),
+    DoBind(Located<Pattern<SolitonID>>, TypedExpr<SolitonID>),
+    DoExpr(TypedExpr<SolitonID>)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -182,18 +182,18 @@ pub enum LiteralData {
     Char(char)
 }
 #[derive(Clone, Debug, PartialEq)]
-pub enum Expr<Ident = InlineHeapHasOIDStr> {
-    Identifier(Ident),
-    Apply(Box<TypedExpr<Ident>>, Box<TypedExpr<Ident>>),
-    OpApply(Box<TypedExpr<Ident>>, Ident, Box<TypedExpr<Ident>>),
+pub enum Expr<SolitonID = InlineHeapHasOIDStr> {
+    SolitonIDifier(SolitonID),
+    Apply(Box<TypedExpr<SolitonID>>, Box<TypedExpr<SolitonID>>),
+    OpApply(Box<TypedExpr<SolitonID>>, SolitonID, Box<TypedExpr<SolitonID>>),
     Literal(LiteralData),
-    Lambda(Pattern<Ident>, Box<TypedExpr<Ident>>),
-    Let(Vec<Binding<Ident>>, Box<TypedExpr<Ident>>),
-    Case(Box<TypedExpr<Ident>>, Vec<Alternative<Ident>>),
-    IfElse(Box<TypedExpr<Ident>>, Box<TypedExpr<Ident>>, Box<TypedExpr<Ident>>),
-    Do(Vec<DoBinding<Ident>>, Box<TypedExpr<Ident>>),
-    TypeSig(Box<TypedExpr<Ident>>, Qualified<Type<Ident>, Ident>),
-    Paren(Box<TypedExpr<Ident>>)
+    Lambda(Pattern<SolitonID>, Box<TypedExpr<SolitonID>>),
+    Let(Vec<Binding<SolitonID>>, Box<TypedExpr<SolitonID>>),
+    Case(Box<TypedExpr<SolitonID>>, Vec<Alternative<SolitonID>>),
+    IfElse(Box<TypedExpr<SolitonID>>, Box<TypedExpr<SolitonID>>, Box<TypedExpr<SolitonID>>),
+    Do(Vec<DoBinding<SolitonID>>, Box<TypedExpr<SolitonID>>),
+    TypeSig(Box<TypedExpr<SolitonID>>, Qualified<Type<SolitonID>, SolitonID>),
+    Paren(Box<TypedExpr<SolitonID>>)
 }
 impl <T: fmt::Display + AsRef<str>> fmt::Display for Binding<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -232,7 +232,7 @@ impl <T: fmt::Display + AsRef<str>> fmt::Display for Expr<T> {
 impl <T: fmt::Display + AsRef<str>> fmt::Display for Pattern<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Pattern::Identifier(ref s) => write!(f, "{}", s),
+            &Pattern::SolitonIDifier(ref s) => write!(f, "{}", s),
             &Pattern::Number(ref i) => write!(f, "{}", i),
             &Pattern::Constructor(ref name, ref patterns) => {
                 try!(write!(f, "({} ", name));
@@ -279,25 +279,25 @@ impl fmt::Display for LiteralData {
 ///The tree will be walked through automatically, calling the appropriate visit_ function
 ///If a visit_ function is overridden it will need to call the appropriate walk_function to
 ///recurse deeper into the AST
-pub trait Visitor<Ident> : Sized {
-    fn visit_expr(&mut self, expr: &TypedExpr<Ident>) {
+pub trait Visitor<SolitonID> : Sized {
+    fn visit_expr(&mut self, expr: &TypedExpr<SolitonID>) {
         walk_expr(self, expr)
     }
-    fn visit_alternative(&mut self, alt: &Alternative<Ident>) {
+    fn visit_alternative(&mut self, alt: &Alternative<SolitonID>) {
         walk_alternative(self, alt)
     }
-    fn visit_pattern(&mut self, pattern: &Pattern<Ident>) {
+    fn visit_pattern(&mut self, pattern: &Pattern<SolitonID>) {
         walk_pattern(self, pattern)
     }
-    fn visit_binding(&mut self, binding: &Binding<Ident>) {
+    fn visit_binding(&mut self, binding: &Binding<SolitonID>) {
         walk_binding(self, binding);
     }
-    fn visit_module(&mut self, module: &Module<Ident>) {
+    fn visit_module(&mut self, module: &Module<SolitonID>) {
         walk_module(self, module);
     }
 }
 
-pub fn walk_module<Ident, V: Visitor<Ident>>(visitor: &mut V, module: &Module<Ident>) {
+pub fn walk_module<SolitonID, V: Visitor<SolitonID>>(visitor: &mut V, module: &Module<SolitonID>) {
     for bind in module.instances.iter().flat_map(|i| i.bindings.iter()) {
         visitor.visit_binding(bind);
     }
@@ -306,14 +306,14 @@ pub fn walk_module<Ident, V: Visitor<Ident>>(visitor: &mut V, module: &Module<Id
     }
 }
 
-pub fn walk_binding<Ident, V: Visitor<Ident>>(visitor: &mut V, binding: &Binding<Ident>) {
+pub fn walk_binding<SolitonID, V: Visitor<SolitonID>>(visitor: &mut V, binding: &Binding<SolitonID>) {
     match binding.matches {
         Match::Simple(ref e) => visitor.visit_expr(e),
         _ => panic!()
     }
 }
 
-pub fn walk_expr<Ident, V: Visitor<Ident>>(visitor: &mut V, expr: &TypedExpr<Ident>) {
+pub fn walk_expr<SolitonID, V: Visitor<SolitonID>>(visitor: &mut V, expr: &TypedExpr<SolitonID>) {
     match &expr.expr {
         &Apply(ref func, ref arg) => {
             visitor.visit_expr(&**func);
@@ -360,11 +360,11 @@ pub fn walk_expr<Ident, V: Visitor<Ident>>(visitor: &mut V, expr: &TypedExpr<Ide
         }
         &TypeSig(ref expr, _) => visitor.visit_expr(&**expr),
         &Paren(ref expr) => visitor.visit_expr(&**expr),
-        &Literal(..) | &Identifier(..) => ()
+        &Literal(..) | &SolitonIDifier(..) => ()
     }
 }
 
-pub fn walk_alternative<Ident, V: Visitor<Ident>>(visitor: &mut V, alt: &Alternative<Ident>) {
+pub fn walk_alternative<SolitonID, V: Visitor<SolitonID>>(visitor: &mut V, alt: &Alternative<SolitonID>) {
     visitor.visit_pattern(&alt.pattern.node);
     match alt.matches {
         Match::Simple(ref e) => visitor.visit_expr(e),
@@ -385,7 +385,7 @@ pub fn walk_alternative<Ident, V: Visitor<Ident>>(visitor: &mut V, alt: &Alterna
     }
 }
 
-pub fn walk_pattern<Ident, V: Visitor<Ident>>(visitor: &mut V, pattern: &Pattern<Ident>) {
+pub fn walk_pattern<SolitonID, V: Visitor<SolitonID>>(visitor: &mut V, pattern: &Pattern<SolitonID>) {
     match pattern {
         &Pattern::Constructor(_, ref ps) => {
             for p in ps.iter() {
@@ -398,34 +398,69 @@ pub fn walk_pattern<Ident, V: Visitor<Ident>>(visitor: &mut V, pattern: &Pattern
 
 
 
-pub trait MutVisitor<Ident> : Sized {
-    fn visit_expr(&mut self, expr: &mut TypedExpr<Ident>) {
+pub trait MutVisitor<SolitonID> : Sized {
+    fn visit_expr(&mut self, expr: &mut TypedExpr<SolitonID>) {
         walk_expr_mut(self, expr)
     }
-    fn visit_alternative(&mut self, alt: &mut Alternative<Ident>) {
+    fn visit_alternative(&mut self, alt: &mut Alternative<SolitonID>) {
         walk_alternative_mut(self, alt)
     }
-    fn visit_pattern(&mut self, pattern: &mut Pattern<Ident>) {
+    fn visit_pattern(&mut self, pattern: &mut Pattern<SolitonID>) {
         walk_pattern_mut(self, pattern)
     }
-    fn visit_binding(&mut self, binding: &mut Binding<Ident>) {
+    fn visit_binding(&mut self, binding: &mut Binding<SolitonID>) {
         walk_binding_mut(self, binding);
     }
-    fn visit_module(&mut self, module: &mut Module<Ident>) {
+    fn visit_module(&mut self, module: &mut Module<SolitonID>) {
         walk_module_mut(self, module);
     }
 }
 
-pub fn walk_module_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, module: &mut Module<Ident>) {
+pub fn walk_module_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, module: &mut Module<SolitonID>) {
+
+
+
+    match module.bindings.len() {
+        0 => {},
+        1 => {
+            let bind = module.bindings.pop().unwrap();
+            visitor.visit_binding(&mut bind);
+            module.bindings.push(bind);
+        }
+        _ => {
+            let bind = module.bindings.pop().unwrap();
+
+        }
+        };
+    } else {
+        for bind in module.bindings.iter_mut() {
+            visitor.visit_binding(bind);
+        }
+    }
+}
+
+
+
+pub fn walk_binding_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, binding: &mut Binding<SolitonID>) {
+
+
+    match binding.matches {
+        Match::Simple(ref mut e) => visitor.visit_expr(e),
+        _ => panic!()
+
     for bind in module.instances.iter_mut().flat_map(|i| i.bindings.iter_mut()) {
         visitor.visit_binding(bind);
     }
     for bind in module.bindings.iter_mut() {
         visitor.visit_binding(bind);
     }
+    for  bind in module.bindings.iter_mut() {
+        bind in module.bindings.iter_mut() {
+        visitor.visit_binding(bind);
+    }
 }
 
-pub fn walk_binding_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, binding: &mut Binding<Ident>) {
+pub fn walk_binding_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, binding: &mut Binding<SolitonID>) {
     match binding.matches {
         Match::Simple(ref mut e) => visitor.visit_expr(e),
         Match::Guards(ref mut gs) => {
@@ -437,7 +472,7 @@ pub fn walk_binding_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, binding: &
     }
 }
 
-pub fn walk_expr_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, expr: &mut TypedExpr<Ident>) {
+pub fn walk_expr_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, expr: &mut TypedExpr<SolitonID>) {
     match expr.expr {
         Apply(ref mut func, ref mut arg) => {
             visitor.visit_expr(&mut **func);
@@ -484,11 +519,15 @@ pub fn walk_expr_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, expr: &mut Ty
         }
         TypeSig(ref mut expr, _) => visitor.visit_expr(&mut **expr),
         Paren(ref mut expr) => visitor.visit_expr(&mut **expr),
-        Literal(..) | Identifier(..) => ()
+        Literal(..) | SolitonIDifier(..) => ()
     }
 }
 
-pub fn walk_alternative_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, alt: &mut Alternative<Ident>) {
+
+
+
+
+pub fn walk_alternative_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, alt: &mut Alternative<SolitonID>) {
     visitor.visit_pattern(&mut alt.pattern.node);
     match alt.matches {
         Match::Simple(ref mut e) => visitor.visit_expr(e),
@@ -509,7 +548,7 @@ pub fn walk_alternative_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, alt: &
     }
 }
 
-pub fn walk_pattern_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, pattern: &mut Pattern<Ident>) {
+pub fn walk_pattern_mut<SolitonID, V: MutVisitor<SolitonID>>(visitor: &mut V, pattern: &mut Pattern<SolitonID>) {
     match *pattern {
         Pattern::Constructor(_, ref mut ps) => {
             for p in ps.iter_mut() {
@@ -520,14 +559,14 @@ pub fn walk_pattern_mut<Ident, V: MutVisitor<Ident>>(visitor: &mut V, pattern: &
     }
 }
 
-pub struct Binds<'a, Ident: 'a> {
-    vec: &'a [Binding<Ident>]
+pub struct Binds<'a, SolitonID: 'a> {
+    vec: &'a [Binding<SolitonID>]
 }
 
 
-impl <'a, Ident: Eq> Iterator for Binds<'a, Ident> {
-    type Item = &'a [Binding<Ident>];
-    fn next(&mut self) -> Option<&'a [Binding<Ident>]> {
+impl <'a, SolitonID: Eq> Iterator for Binds<'a, SolitonID> {
+    type Item = &'a [Binding<SolitonID>];
+    fn next(&mut self) -> Option<&'a [Binding<SolitonID>]> {
         if self.vec.len() == 0 {
             None
         }
@@ -549,13 +588,13 @@ impl <'a, Ident: Eq> Iterator for Binds<'a, Ident> {
 ///not False = True
 ///undefined = ...
 ///Produces  [[not True, not False], [undefined]]
-pub fn binding_groups<'a, Ident: Eq>(bindings: &'a [Binding<Ident>]) -> Binds<'a, Ident> {
+pub fn binding_groups<'a, SolitonID: Eq>(bindings: &'a [Binding<SolitonID>]) -> Binds<'a, SolitonID> {
     Binds { vec: bindings }
 }
 
 ///Since bindings in instances have the same name as any other instance for the same class we
 ///Give it a new name which is '# Type name' (no spaces)
-pub fn encode_binding_identifier(instancename : InlineHeapHasOIDStr, bindingname : InlineHeapHasOIDStr) -> InlineHeapHasOIDStr {
+pub fn encode_binding_SolitonIDifier(instancename : InlineHeapHasOIDStr, bindingname : InlineHeapHasOIDStr) -> InlineHeapHasOIDStr {
     let mut buffer = String::new();
     buffer.push_str("#");
     buffer.push_str(&instancename);

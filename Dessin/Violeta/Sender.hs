@@ -1,4 +1,40 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+module Main where
+  import Control.Monad (void)
+  import Data.Text (Text)
+  import qualified Data.Text as T
+  import qualified Data.Text.IO as TIO
+  import Data.Time.Clock (UTCTime)
+  import qualified Data.Time.Clock as Clock
+  import qualified Data.Time.Format as Format
+
+  import qualified Options.Applicative as O
+  import qualified Options.Applicative.Types as O
+  import qualified Options.Haskell.TH as TH
+  import qualified Options.Applicative.Builder.Internal as O
+
+  import qualified System.Console.ANSI as ANSI
+  import qualified System.Console.ANSI.Windows as ANSI
+
+  import qualified System.IO as IO
+  import qualified System.IO.Error as IO
+
+
+  import qualified System.Directory as Directory
+  import qualified System.Environment as Environment
+
+
+
+  import qualified System.FilePath as FilePath
+  import qualified System.FilePath.Glob as Glob
+
+ memristoreNonceWithTimestamp :: UTCTime -> Text
+  memristoreNonceWithTimestamp time = T.pack $ Format.formatTime Format.defaultTimeLocale "%s" timer
+    where
+      timer = Clock.utctDayTime time
+
 
 module Dessin.Violeta.Byzantine.Sender
   ( sendFirsttWriteHappensBeforeEntries

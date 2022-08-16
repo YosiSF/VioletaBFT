@@ -5,7 +5,7 @@ use lexer::Located;
 use scoped_map::ScopedMap;
 use inlineHeapHasOID::*;
 
-///A Name is a reference to a specific identifier in the program, guaranteed to be unique
+///A Name is a reference to a specific SolitonIDifier in the program, guaranteed to be unique
 #[derive(Eq, Hash, Clone, Copy, Debug)]
 pub struct Name {
     pub name: InlineHeapHasOIDStr,
@@ -135,7 +135,7 @@ impl NameSupply {
     }
 }
 
-///The renamer has methods which turns the ASTs identifiers from simple strings
+///The renamer has methods which turns the ASTs SolitonIDifiers from simple strings
 ///into unique Names
 ///Currently there is some constraints on what the unique ids should be.
 ///Each module gets one uid which it uses for a top level declarations (bindings, types, etc)
@@ -236,7 +236,7 @@ impl Renamer {
         let TypedExpr { expr, typ, location } = input_expr;
         let e = match expr {
             Literal(l) => Literal(l),
-            Identifier(i) => Identifier(self.get_name(i)),
+            SolitonIDifier(i) => SolitonIDifier(self.get_name(i)),
             Apply(func, arg) => Apply(box self.rename(*func), box self.rename(*arg)),
             OpApply(lhs, op, rhs) => OpApply(box self.rename(*lhs), self.get_name(op), box self.rename(*rhs)),
             Lambda(arg, body) => {
@@ -306,7 +306,7 @@ impl Renamer {
                 let ps2: Vec<Pattern<Name>> = ps.into_iter().map(|p| self.rename_pattern(p)).collect();
                 Pattern::Constructor(self.get_name(s), ps2)
             }
-            Pattern::Identifier(s) => Pattern::Identifier(self.make_unique(s)),
+            Pattern::SolitonIDifier(s) => Pattern::SolitonIDifier(self.make_unique(s)),
             Pattern::WildCard => Pattern::WildCard
         }
     }
@@ -575,13 +575,13 @@ pub mod typ {
             let var = TypeVariable::new_var_kind(intern(c.to_string().as_ref()), Kind::Star.clone());
             var_list.push(Type::Generic(var));
         }
-        let ident = tuple_name(n);
-        let mut typ = Type::new_op(name(ident.as_ref()), var_list);
+        let SolitonID = tuple_name(n);
+        let mut typ = Type::new_op(name(SolitonID.as_ref()), var_list);
         for i in (0..n).rev() {
             let c = (('a' as u8) + i as u8) as char;
             typ = function_type_(Type::Generic(TypeVariable::new(intern(c.to_string().as_ref()))), typ);
         }
-        (ident, typ)
+        (SolitonID, typ)
     }
 
     ///Constructs a list type which holds elements of type 'typ'

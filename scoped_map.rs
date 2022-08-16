@@ -1,11 +1,60 @@
 use std::collections::HashMap;
 use std::collections::hash_map::{Entry, IterMut};
 use std::hash::Hash;
+use std::marker::PhantomData;
+use std::mem::swap;
+use std::ops::{Index, IndexMut};
+use std::ptr::NonNull;
+use std::slice::{Iter, IterMut};
+use std::vec::Vec;
+
+
+/// An iterator over the entries of a `BinaryHeap`.
+/// The iterator
+/// yields references to the entries in the order they would be yielded by `BinaryHeap::iter()`.
+/// This iterator is created by the [`iter_mut`] method on [`BinaryHeap`].
+/// [`iter_mut`]: struct.BinaryHeap.html#method.iter_mut ()
+/// [`BinaryHeap`]: struct.BinaryHeap.htmlookup
 
 ///A map struct which allows for the isizeroduction of different scopes
 ///Introducing a new scope will make it possible to isizeroduce additional
 ///variables with names already defined, shadowing the old name
 ///After exiting a scope the shadowed variable will again be re isizeroduced
+
+pub struct ScopedMap<K, V> {
+    map: HashMap<K, V>,
+    scopes: Vec<HashMap<K, V>>,
+}
+
+
+impl<K: Hash + Eq, V> ScopedMap<K, V> {
+    pub fn new() -> Self {
+        ScopedMap {
+            map: HashMap::new(),
+            scopes: Vec::new(),
+        }
+        }
+    pub fn insert(&mut self, key: K, value: V) {
+        self.map.insert(key, value);
+        }
+    pub fn insert_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+        }
+    pub fn exit_scope(&mut self) {
+        self.scopes.pop();
+        }
+    pub fn lookup(&self, key: &K) -> Option<&V> {
+        self.map.get(key)
+        }
+
+    pub fn lookup_mut(&mut self, key: &K) -> Option<&mut V> {
+        self.map.get_mut(key)
+        }
+
+    }
+}
+
+
 pub struct ScopedMap<K, V> {
     ///A hashmap storing a key -> value mapping
     ///Stores a vector of values in which the value at the top is value returned from 'find'

@@ -4,7 +4,9 @@
            , MagicHash, MultiParamTypeClasses, NamedFieldPuns, RankNTypes 
            , TupleSections, TypeSynonymInstances #-}
 module RP 
-  ( SRef(), RP(), RPE(), RPR(), RPW(), RPRead
+  ( SRef(), RP(), RPE(), RPR(), RPW(), RPRead,
+    RPReadUnsafe, RPReadSafe, RPReadUnchecked,
+    RPWrite, RPWriteUnsafe, RPWriteSafe, RPWriteUnchecked,
   , ThreadState(..) 
   , newSRef, readSRef, writeSRef, copySRef
   , runRP, forkRP, joinRP, synchronizeRP, threadDelayRP, readRP, writeRP
@@ -21,15 +23,54 @@ import Data.Int (Int64)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (delete)
 import Debug.Trace (trace)
+import GHC.Conc (getNumCapabilities)
+import GHC.Exts (Int(..))
+import GHC.Prim (reallyUnsafePtrEquality#)
+import System.Mem.StableName (makeStableName, hashStableName)
+import System.Mem.Weak (Weak(..))
+import System.Timeout (timeout)
+import qualified Data.Atomics as A
+import qualified Data.Atomics.Counter as C
+import qualified Data.Atomics.Relaxed as R
+
+
+--------------------------------------------------------------------------------
+--                                                                            --
+--                                                                            --
+
+
+
+--------------------------------------------------------------------------------
 
 type Counter = IORef Int64
 
 offline    = 0
 online     = 1
 counterInc = 2
+counterDec = 3
+  deriving (Eq, Show)
+  {-# INLINE counterInc #-}
+  {-# INLINE counterDec #-}
+  {-# INLINE getNumCapabilities #-}
+  {-# INLINE loadLoadBarrier #-}
+  {-# INLINE storeLoadBarrier #-}
+  {-# INLINE writeBarrier #-}
+  {-# INLINE readBarrier #-}
+  {-# INLINE deleteBarrier #-}
+  {-# INLINE addBarrier #-}
+  {-# INLINE removeBarrier #-}
+  {-# INLINE offline #-}
+  {-# INLINE online #-}
+  {-# INLINE setOffline #-}
+  {-# INLINE setOnline #-}
+  {-# INLINE getOffline #-}
+
 
 writeCounter :: Counter -> Int64 -> IO ()
 writeCounter c x = x `seq` writeIORef c x
+
+
+
 
 readCounter :: Counter -> IO Int64
 readCounter c = do x <- readIORef c
@@ -37,6 +78,8 @@ readCounter c = do x <- readIORef c
 
 newCounter :: IO Counter
 newCounter  = newIORef online
+
+
 
 newGCounter :: IO Counter
 newGCounter = newIORef online
@@ -100,6 +143,10 @@ instance Applicative (RPWIO s) where
 instance Functor (RPWIO s) where
   fmap  = liftM
 
+
+
+
+
 -- have to use newtypes here since you can't use partially applied
 -- type synonyms in instance declarations.
 newtype RP  s a = RP  { unRP  :: ReaderT RPState  (RPIO  s) a }
@@ -140,7 +187,76 @@ instance Applicative (RPW s) where
 instance Functor (RPW s) where
   fmap    = liftM
 
+
+instance MonadIO (RPIO s) where
+  liftIO = UnsafeRPIO
+
+
+
+
+
+
+--------------------------------------------------------------------------------
+--                                                                            --
+--                                                                            --
+--------------------------------------------------------------------------------
+{-# SOURCE #-}
+
+
+
+
+
 -- Shared references
+module Shared where
+  import Control.Concurrent.MVar
+  import Control.Concurrent.STM
+  import Control.Concurrent.STM.TArray
+  import Control.Concurrent.STM.TVar
+  import Control.Concurrent.STM.THash
+  import Control.Concurrent.STM.TMVar
+  import Control.Concurrent.STM.TTree
+  ( resetElectionTimer
+  , getElectionTimer
+  , resetHeartbeatTimer
+  , cancelTimer
+  , getHeartbeatTimer
+
+  ) where
+
+import Control.Lens hiding (Index)
+import Control.Monad.Trans (lift)
+import System.Random
+import Control.Concurrent.Lifted
+
+import Network.Tangaroa.Types
+import Network.Tangaroa.Util
+
+getNewElectionTimeout :: VioletaBFT nt et rt mt Int
+getNewElectionTimeout = view (cfg.electionTimeoutRange) >>= lift . randomRIO
+
+resetElectionTimer :: VioletaBFT nt et rt mt ()
+resetElectionTimer = do
+  timeout <- getNewElectionTimeout
+  setTimedEvent (ElectionTimeout $ show (timeout `div` 1000) ++ "ms") timeout
+
+resetHeartbeatTimer :: VioletaBFT nt et rt mt ()
+resetHeartbeatTimer = do
+  timeout <- view (cfg.heartbeatTimeout)
+  setTimedEvent (HeartbeatTimeout $ show (timeout `div` 1000) ++ "ms") timeout
+
+-- | Cancel any existing timer.
+cancelTimer :: VioletaBFT nt et rt mt ()
+cancelTimer = do
+  use timerThread >>= maybe (return ()) killThread
+  timerThread .= Nothing
+
+-- | Cancels any pending timer and sets a new timer to trigger an event after t
+-- microseconds.
+setTimedEvent :: Event nt et rt -> Int -> VioletaBFT nt et rt mt ()
+setTimedEvent e t = do
+  cancelTimer
+  tmr <- fork $ wait t >> enqueueEvent e
+  timerThread .= Just tmr
 
 newtype SRef s a = SRef (IORef a)
 
@@ -267,9 +383,36 @@ joinRP (ThreadState {tid, rv, ctr}) = RP $ do
   v <- lift $ UnsafeRPIO $ takeMVar rv         -- wait for thread to complete.
   return v
 
+
+-- | Wait for all threads to complete. This function is called automatically
+--  at the end of a program.
+
 -- | Read-side critical section.
 readRP :: RPR s a -> RPE s a
 readRP m = RPE $ do
+  RPState {countersV, gCounter, writerLock} <- ask
+  lift $ UnsafeRPIO $ modifyMVar_ countersV $ \cs -> do
+    return $ map counter cs
+  lift $ UnsafeRPIO $ modifyMVar_ gCounter $ \c -> do
+    return $ c + 1
+  lift $ UnsafeRPIO $ takeMVar writerLockRP -- wait for writer to complete.
+  return modifyMVar_ writerLockRP $ \_ -> do
+    return ()
+  lift $ UnsafeRPIO $ modifyMVar_ gCounter $ \c -> do
+    return $ c - 1
+  lift $ UnsafeRPIO $ modifyMVar_ countersV $ \cs -> do
+    return $ map (\c -> c { counter = offline }) cs
+  return $ unRPR m
+        {-# INLINE readRP #-}
+
+-- | Write-side critical section.
+writeRP :: RPR s a -> RPE s a
+writeRP m = RPE $ do
+  RPState {countersV, gCounter, writerLock} <- ask
+  lift $ UnsafeRPIO $ modifyMVar_ countersV $ \cs -> do
+    return $ map counter cs
+  lift $ UnsafeRPIO $ modifyMVar_ gCounter $ \c -> do
+    return $ c + 1
   RPEState {counter, gCounter} <- ask
   -- need to deal with the possibility that this thread was offline; if so, take a snapshot of gCounter.
   lift $ UnsafeRPEIO $ do
@@ -311,13 +454,62 @@ writeRP m = RPE $ do
   -- return critical section's return value
   return x
 
+
+-- | Synchronize with other threads.
+synchronizeRP :: RPE s a
+synchronizeRP = do
+  rpw <- getRPW
+  rpr <- getRPR
+  rpe <- getRPE
+  return $ unRPW $ do
+    x <- rpw
+    y <- rpr
+    z <- rpe
+    return $ x + y + z
+
+
 synchronizeRP :: RPW s ()
+    where
+      synchronizeRP = do
+        rpw <- getRPW
+        rpr <- getRPR
+        rpe <- getRPE
+        return $ unRPW $ do
+          x <- rpw
+          y <- rpr
+          z <- rpe
+          return $ x + y + z
+            synchronizeRP :: RPW s ()
+            synchronizeRP = do
+              rpw <- getRPW
 synchronizeRP = RPW $ do
   -- wait for readers
   RPEState {counter, gCounter, countersV} <- ask
   c <- lift $ UnsafeRPWIO $ readCounter counter
   lift $ UnsafeRPWIO $ do
-    storeLoadBarrier
+    when (c == offline) $ do
+      storeLoadBarrier
+      writeCounter counter =<< readCounter gCounter
+      storeLoadBarrier
+  -- wait for writers
+  lift $ UnsafeRPWIO $ takeMVar writerLockRP
+  lift $ UnsafeRPWIO $ putMVar writerLockRP ()
+  -- wait for other threads to complete
+  lift $ UnsafeRPWIO $ modifyMVar_ countersV $ \cs -> do
+    return $ map counter cs
+  return ()
+    {-# INLINE sync #-}
+        return ()
+  {-# INLINE storeLoadBarrier #- }
+  where
+  storeLoadBarrier = do
+    writeCounter gCounter
+return ()
+  {-# INLINE storeLoadBarrier #-}
+
+
+
+
     when (c /= offline) $ trace ("top setting writer counter offline") $ writeCounter counter offline
   gc' <- lift $ UnsafeRPWIO $ withMVar countersV $ \counters -> do
     gc' <- return . (+ counterInc) =<< readCounter gCounter
@@ -341,3 +533,11 @@ synchronizeRP = RPW $ do
 -- | Delay an RP thread.
 threadDelayRP :: Int -> RP s ()
 threadDelayRP = RP . lift . UnsafeRPIO . threadDelay
+
+
+-- | Delay an RPE thread.
+threadDelayRPE :: Int -> RPE s ()
+threadDelayRPE = RPE . lift . UnsafeRPEIO . threadDelay
+-- | Delay an IO thread.
+threadDelayIO :: Int -> IO ()
+threadDelayIO = threadDelay

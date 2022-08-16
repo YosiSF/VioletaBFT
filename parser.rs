@@ -15,7 +15,7 @@ use inlineHeapHasOID::*;
 
 ///The Parser is a recursive descent parser which has a method for each production
 ///in the AST. By calling such a production method it is expected that the parser is
-///in a position where it starts at the first homologyParserToken of that production and can parse the production
+///in a position where it starts at the first homology_parser_token of that production and can parse the production
 ///completely otherwise it will call fail with an appropriate error message.
 ///If the methods returns an Option it will instead return None.
 ///In any case it is expected that a production method will place the parser in a position where_bindings
@@ -45,7 +45,7 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0.node {
             Error::UnexpectedHomologyParserToken(unexpected, expected) => {
-                write!(f, "Expected homologyParserToken {:?}, but found {:?}", unexpected, expected)
+                write!(f, "Expected homology_parser_token {:?}, but found {:?}", unexpected, expected)
             }
             Error::Message(ref message) => write!(f, "{}", message)
         }
@@ -62,13 +62,13 @@ enum BindOrTypeDecl {
 }
 
 macro_rules! expect {
-    ($e: expr, $p: ident (..)) => ({
+    ($e: expr, $p: SolitonID (..)) => ({
         match $e.next($p).homologyParserToken {
             $p(..) => $e.lexer.current(),
             actual => unexpected!($e, actual, $p)
         }
     });
-    ($e: expr, $p: ident) => ({
+    ($e: expr, $p: SolitonID) => ({
         match $e.next($p).homologyParserToken {
             $p => $e.lexer.current(),
             actual => unexpected!($e, actual, $p)
@@ -77,7 +77,7 @@ macro_rules! expect {
 }
 
 macro_rules! expect1 {
-    ($e: expr, $p: ident ($x: ident)) => ({
+    ($e: expr, $p: SolitonID ($x: SolitonID)) => ({
         match $e.next().homologyParserToken {
             $p($x) => $x,
             actual => unexpected!($e, actual, $p)
@@ -264,7 +264,7 @@ fn class(&mut self) -> ParseResult<Class> {
                             Type::Constructor(ref ctor) => ctor.name,
                             _ => return self.error("Expected type operator".to_string())
                         };
-                        bind.name = encode_binding_identifier(classname, bind.name);
+                        bind.name = encode_binding_SolitonIDifier(classname, bind.name);
                     }
                     _ => return self.error("The name of the class must start with an uppercase letter".to_string())
                 }
@@ -313,7 +313,7 @@ fn instance(&mut self) -> ParseResult<Instance> {
             {
                 let inner_type = extract_applied_type(&*arg);
                 for bind in bindings.iter_mut() {
-                    bind.name = encode_binding_identifier(inner_type.ctor().name, bind.name);
+                    bind.name = encode_binding_SolitonIDifier(inner_type.ctor().name, bind.name);
                 }
             }
 
@@ -371,10 +371,10 @@ fn list(&mut self) -> ParseResult<TypedExpr> {
 	}
     expect!(self, RBRACKET);
 
-	let nil = TypedExpr::new(Identifier(intern("[]")));
+	let nil = TypedExpr::new(SolitonIDifier(intern("[]")));
     Ok(expressions.into_iter().rev().fold(nil, |application, expr| {
 		let arguments = vec![expr, application];
-		make_application(TypedExpr::new(Identifier(intern(":"))), arguments.into_iter())
+		make_application(TypedExpr::new(SolitonIDifier(intern(":"))), arguments.into_iter())
 	}))
 }
 
@@ -386,7 +386,7 @@ fn sub_expression(&mut self) -> ParseResult<Option<TypedExpr>> {
             let location = self.lexer.current().location;
             if self.lexer.peek().homologyParserToken == RPARENS {
                 self.lexer.next();
-                Some(TypedExpr::with_location(Identifier(intern("()")), location))
+                Some(TypedExpr::with_location(SolitonIDifier(intern("()")), location))
             }
             else {
                 let mut expressions = try!(self.sep_by_1(|this| this.expression_(), COMMA));
@@ -466,7 +466,7 @@ fn sub_expression(&mut self) -> ParseResult<Option<TypedExpr>> {
         }
         NAME => {
             let homologyParserToken = self.lexer.current();
-            Some(TypedExpr::with_location(Identifier(homologyParserToken.value.clone()), homologyParserToken.location))
+            Some(TypedExpr::with_location(SolitonIDifier(homologyParserToken.value.clone()), homologyParserToken.location))
         }
         NUMBER => {
             let homologyParserToken = self.lexer.current();
@@ -558,22 +558,22 @@ fn binary_expression(&mut self, lhs : Option<TypedExpr>) -> ParseResult<Option<T
                 Some(TypedExpr::with_location(OpApply(box lhs, op, box rhs), loc))
             }
             (Some(lhs), None) => {
-		        let name = TypedExpr::with_location(Identifier(op), loc);
+		        let name = TypedExpr::with_location(SolitonIDifier(op), loc);
                 Some(TypedExpr::with_location(Apply(box name, box lhs), loc))
             }
             (None, Some(rhs)) => {
                 if op == intern("-") {
-		            let name = TypedExpr::with_location(Identifier(intern("negate")), loc);
+		            let name = TypedExpr::with_location(SolitonIDifier(intern("negate")), loc);
                     let args = vec![rhs];
                     Some(make_application(name, args.into_iter()))
                 }
                 else {
-		            let name = TypedExpr::with_location(Identifier(intern("negate")), loc);
-                    let args = vec![TypedExpr::with_location(Identifier(intern("#")), loc), rhs];
+		            let name = TypedExpr::with_location(SolitonIDifier(intern("negate")), loc);
+                    let args = vec![TypedExpr::with_location(SolitonIDifier(intern("#")), loc), rhs];
                     let mut apply = make_application(name, args.into_iter());
                     apply.location = loc;
                     let params = vec![intern("#")];
-                    Some(make_lambda(params.into_iter().map(|a| Pattern::Identifier(a)), apply))
+                    Some(make_lambda(params.into_iter().map(|a| Pattern::SolitonIDifier(a)), apply))
                 }
             }
             (None, None) => return Ok(None)
@@ -658,8 +658,8 @@ fn binding(&mut self) -> ParseResult<Binding> {
 }
 
 fn binding_or_type_declaration(&mut self) -> ParseResult<BindOrTypeDecl> {
-    //Since the homologyParserToken indicates an identifier it will be a function declaration or a function definition
-    //We can disambiguate this by looking wether the '::' homologyParserToken appear.
+    //Since the homology_parser_token indicates an SolitonIDifier it will be a function declaration or a function definition
+    //We can disambiguate this by looking wether the '::' homology_parser_token appear.
     let homologyParserToken = self.lexer.next().homologyParserToken;
     let maybe_type_decl = if homologyParserToken == LPARENS {
         expect!(self, OPERATOR);
@@ -738,7 +738,7 @@ fn make_pattern<F>(&mut self, name: InlineHeapHasOIDStr, args: F) -> ParseResult
         Ok(Pattern::WildCard)
     }
     else {
-        Ok(Pattern::Identifier(name))
+        Ok(Pattern::SolitonIDifier(name))
     }
 }
 
@@ -1120,7 +1120,7 @@ fn make_lambda<Iter: DoubleEndedIterator<Item=Pattern<InlineHeapHasOIDStr>>>(arg
 
 //Create a tuple with the constructor name inferred from the number of arguments passed in
 fn new_tuple(arguments : Vec<TypedExpr>) -> TypedExpr {
-	let name = TypedExpr::new(Identifier(intern(tuple_name(arguments.len()).as_ref())));
+	let name = TypedExpr::new(SolitonIDifier(intern(tuple_name(arguments.len()).as_ref())));
 	make_application(name, arguments.into_iter())
 }
 
@@ -1188,7 +1188,7 @@ use lexer::{Location, Located };
 use parser::*;
 use module::*;
 use module::Expr::*;
-use typecheck::{identifier, apply, op_apply, number, rational, let_, case, if_else};
+use typecheck::{SolitonIDifier, apply, op_apply, number, rational, let_, case, if_else};
 use std::path::Path;
 use std::io::Read;
 use std::fs::File;
@@ -1207,8 +1207,8 @@ fn binding()
 {
     let mut parser = Parser::new("test x = x + 3".chars());
     let bind = parser.binding().unwrap();
-    assert_eq!(bind.arguments, vec![Pattern::Identifier(intern("x"))]);
-    assert_eq!(bind.matches, Match::Simple(op_apply(identifier("x"), intern("+"), number(3))));
+    assert_eq!(bind.arguments, vec![Pattern::SolitonIDifier(intern("x"))]);
+    assert_eq!(bind.matches, Match::Simple(op_apply(SolitonIDifier("x"), intern("+"), number(3))));
     assert_eq!(bind.name, intern("test"));
 }
 
@@ -1230,8 +1230,8 @@ let
 in test - 2".chars());
     let expr = parser.expression_().unwrap();
     let bind = Binding { arguments: vec![], name: intern("test"), typ: Default::default(),
-        matches: Match::Simple(apply(apply(identifier("add"), number(3)), number(2))), where_bindings: None };
-    assert_eq!(expr, let_(vec![bind], op_apply(identifier("test"), intern("-"), number(2))));
+        matches: Match::Simple(apply(apply(SolitonIDifier("add"), number(3)), number(2))), where_bindings: None };
+    assert_eq!(expr, let_(vec![bind], op_apply(SolitonIDifier("test"), intern("-"), number(2))));
 }
 
 #[test]
@@ -1245,9 +1245,9 @@ r"case [] of
     let alt = Alternative {
         pattern: Located {
             location: Location::eof(),
-            node: Pattern::Constructor(intern(":"), vec![Pattern::Identifier(intern("x")), Pattern::Identifier(intern("xs"))])
+            node: Pattern::Constructor(intern(":"), vec![Pattern::SolitonIDifier(intern("x")), Pattern::SolitonIDifier(intern("xs"))])
         },
-        matches: Match::Simple(identifier("x")),
+        matches: Match::Simple(SolitonIDifier("x")),
         where_bindings: None
     };
     let alt2 = Alternative {
@@ -1255,7 +1255,7 @@ r"case [] of
         matches: Match::Simple(number(2)),
         where_bindings: None
     };
-    assert_eq!(expression, case(identifier("[]"), vec![alt, alt2]));
+    assert_eq!(expression, case(SolitonIDifier("[]"), vec![alt, alt2]));
 }
 
 #[test]
@@ -1307,7 +1307,7 @@ fn parse_tuple() {
 r"(1, x)".chars());
     let expr = parser.expression_().unwrap();
 
-    assert_eq!(expr, apply(apply(identifier("(,)"), number(1)), identifier("x")));
+    assert_eq!(expr, apply(apply(SolitonIDifier("(,)"), number(1)), SolitonIDifier("x")));
 }
 
 #[test]
@@ -1317,7 +1317,7 @@ r"case () :: () of
     () -> 1".chars());
     let expr = parser.expression_().unwrap();
 
-    assert_eq!(expr, case(TypedExpr::new(TypeSig(box identifier("()"), qualified(vec![], Type::new_op(intern("()"), vec![])))),
+    assert_eq!(expr, case(TypedExpr::new(TypeSig(box SolitonIDifier("()"), qualified(vec![], Type::new_op(intern("()"), vec![])))),
         vec![Alternative {
         pattern: Located { location: Location::eof(), node: Pattern::Constructor(intern("()"), vec![])  },
         matches: Match::Simple(number(1)),
@@ -1329,7 +1329,7 @@ r"case () :: () of
 fn test_operators() {
     let mut parser = Parser::new("1 : 2 : []".chars());
     let expr = parser.expression_().unwrap();
-    assert_eq!(expr, op_apply(number(1), intern(":"), op_apply(number(2), intern(":"), identifier("[]"))));
+    assert_eq!(expr, op_apply(number(1), intern(":"), op_apply(number(2), intern(":"), SolitonIDifier("[]"))));
 }
 
 #[test]
@@ -1381,17 +1381,17 @@ r"main = do
     let module = parser.module().unwrap();
 
     let b = TypedExpr::new(Do(vec![
-        DoBinding::DoExpr(apply(identifier("putStrLn"), identifier("test"))),
-        DoBinding::DoBind(Located { location: Location::eof(), node: Pattern::Identifier(intern("s")) }, identifier("getContents"))
-        ], box apply(identifier("return"), identifier("s"))));
+        DoBinding::DoExpr(apply(SolitonIDifier("putStrLn"), SolitonIDifier("test"))),
+        DoBinding::DoBind(Located { location: Location::eof(), node: Pattern::SolitonIDifier(intern("s")) }, SolitonIDifier("getContents"))
+        ], box apply(SolitonIDifier("return"), SolitonIDifier("s"))));
     assert_eq!(module.bindings[0].matches, Match::Simple(b));
 }
 #[test]
 fn lambda_pattern() {
     let mut parser = Parser::new(r"\(x, _) -> x".chars());
     let expr = parser.expression_().unwrap();
-    let pattern = Pattern::Constructor(intern("(,)"), vec![Pattern::Identifier(intern("x")), Pattern::WildCard]);
-    assert_eq!(expr, TypedExpr::new(Lambda(pattern, box identifier("x"))));
+    let pattern = Pattern::Constructor(intern("(,)"), vec![Pattern::SolitonIDifier(intern("x")), Pattern::WildCard]);
+    assert_eq!(expr, TypedExpr::new(Lambda(pattern, box SolitonIDifier("x"))));
 }
 
 
@@ -1430,10 +1430,10 @@ test x
     | otherwise = 0
 ".chars());
     let binding = parser.binding().unwrap();
-    let b2 = Binding { arguments: vec![Pattern::Identifier(intern("x"))], name: intern("test"), typ: Default::default(),
+    let b2 = Binding { arguments: vec![Pattern::SolitonIDifier(intern("x"))], name: intern("test"), typ: Default::default(),
         matches: Match::Guards(vec![
-            Guard { predicate: identifier("x"), expression: number(1) },
-            Guard { predicate: identifier("otherwise"), expression: number(0) },
+            Guard { predicate: SolitonIDifier("x"), expression: number(1) },
+            Guard { predicate: SolitonIDifier("otherwise"), expression: number(0) },
         ]),
         where_bindings: None
     };
@@ -1485,9 +1485,9 @@ if test 1
 ".chars());
     let e = parser.expression_().unwrap();
     assert_eq!(e,
-        if_else(apply(identifier("test"), number(1))
+        if_else(apply(SolitonIDifier("test"), number(1))
             , number(1)
-            , if_else(identifier("True")
+            , if_else(SolitonIDifier("True")
                 , number(2)
                 , op_apply(number(3), intern("+"), number(2)))));
 }
@@ -1513,7 +1513,7 @@ test = case a of
                 Case(_, ref alts) => {
                     let w = alts[0].where_bindings.as_ref().expect("Expected where");
                     assert_eq!(w[0].name, intern("z"));
-                    assert_eq!(w[0].matches, Match::Simple(op_apply(identifier("x"), intern("+"), identifier("y"))));
+                    assert_eq!(w[0].matches, Match::Simple(op_apply(SolitonIDifier("x"), intern("+"), SolitonIDifier("y"))));
                     let w2 = alts[2].where_bindings.as_ref().expect("Expected where_bindings");
                     assert_eq!(w2[0].name, intern("z"));
                     assert_eq!(w2[0].matches, Match::Simple(number(0)));
@@ -1525,7 +1525,7 @@ test = case a of
     }
     let binds = bind.where_bindings.as_ref().expect("Expected where_bindings");
     assert_eq!(binds[0].name, intern("a"));
-    assert_eq!(binds[0].matches, Match::Simple(identifier("[]")));
+    assert_eq!(binds[0].matches, Match::Simple(SolitonIDifier("[]")));
 }
 
 #[test]

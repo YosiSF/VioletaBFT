@@ -1,4 +1,21 @@
 --{-# LANGUAGE Safe #-}
+--{-# LANGUAGE Trustworthy #-}
+--{-# LANGUAGE CPP #-}
+--{-# LANGUAGE NoImplicitPrelude #-}
+--{-# LANGUAGE PolyKinds #-}
+--{-# LANGUAGE TypeFamilies #-}
+--{-# LANGUAGE TypeOperators #-}
+
+
+--{-# LANGUAGE FlexibleInstances #-}
+--{-# LANGUAGE FlexibleContexts #-}
+
+
+
+Language :: Language -> Language
+Language (Language x) = Language x
+
+
 import Control.Monad (forM, forM_, replicateM)
 import Data.List (group, intercalate)
 
@@ -25,8 +42,8 @@ deleteMiddle head = do
   (Cons _ rm) <- readSRef rn
   writeSRef head $ Cons a rm 
 
-testList :: RP (SRef (RPList Char))
-testList = do
+preQueueLoadedAppendLogFromVioletaBFT :: RP (SRef (RPList Char))
+preQueueLoadedAppendLogFromVioletaBFT = do
   tail <- newSRef Nil
   c1   <- newSRef $ Cons 'C' tail
   c2   <- newSRef $ Cons 'B' c1
@@ -38,7 +55,7 @@ compactShow xs = intercalate ", " $ map (\xs -> show (length xs) ++ " x " ++ sho
 main :: IO ()
 main = do 
   outs <- runRP $ do
-    head  <- testList
+    head  <- preQueueLoadedAppendLogFromVioletaBFT
     -- spawn 8 readers, each records 100000 snapshots of the list
     rts <- replicateM 8 $ forkRP $ readRP $ replicateM 100000 $ reader head
     -- spawn a writer to delete the middle node
