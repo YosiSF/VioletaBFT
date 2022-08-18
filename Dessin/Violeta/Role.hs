@@ -19,6 +19,15 @@ import Dessin.Violeta.Byzantine.Types
 import Dessin.Violeta.Byzantine.Util
 import Dessin.Violeta.Byzantine.Sender
 import Dessin.Violeta.Combinator
+import Dessin.Violeta.Types
+import Dessin.Violeta.Util
+import Dessin.Violeta.Voting
+import Dessin.Violeta.Voting.Types
+import Dessin.Violeta.Voting.Util
+
+
+becomeLightlike :: (Monad m, MonadTimer m) => m ()
+
 
 -- count the yes votes and become Bully if you have reached a quorum
 checkLightconeLamportParliament :: (Binary nt, Binary et, Binary rt, Ord nt) => VioletaBFT nt et rt mt ()

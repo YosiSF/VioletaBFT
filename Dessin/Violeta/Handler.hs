@@ -62,8 +62,89 @@ import qualified Data.Set as Set
 import Dessin.Violeta.Byzantine.Types
 import Dessin.Violeta.Byzantine.Sender
 import Dessin.Violeta.Byzantine.Util
+import Dessin.Violeta.Byzantine.Message
+import Dessin.Violeta.Byzantine.Event
+import Dessin.Violeta.Byzantine.EventHandler
+import Dessin.Violeta.Byzantine.EventHandler.Types
+import Dessin.Violeta.Byzantine.EventHandler.Util
+import Dessin.Violeta.Byzantine.EventHandler.Message
+
 import Dessin.Violeta.Byzantine.Role
 import Dessin.Violeta.Byzantine.Timer
+
+
+handleEvents :: (Monad m, MonadIO m) => EventHandler m -> m ()
+handleEvents eventHandler = do
+  event <- eventHandler
+  case event of
+    Nothing -> return ()
+    Just e -> handleEvent e eventHandler
+        where
+            handleEvent :: Event e -> EventHandler m -> m ()
+
+TransmitRPC :: (Monad m, MonadIO m) => EventHandler m
+transmitRPC = do
+  event <- getEvent
+  case event of
+    Nothing -> return Nothing
+    Just e -> do
+      case e of
+        TransmitRPCMessage msg -> do
+          sendMessage msg
+          return Nothing
+        _ -> return $ Just eventHandlerConfig
+            ReceiveRPC :: (Monad m, MonadIO m) => EventHandler msg -> EventHandler msg
+                 getEvent :: Event e -> EventHandler m
+            {-# INLINE sendMessage #-}
+            {-# INLINE receiveRPC #-}
+            {-# INLINE getEvent #-}
+
+    eventType = TransmitRPC
+  }
+  let (Event {..}) = event{
+    eventType = TransmitRPC
+  }
+  sendMessage event = do
+    sendMessage event
+    where
+      eventType = ReceiveRPC
+  receiveRPC = do
+    msg <- receiveMessage event
+    case msg of
+      Nothing -> return Nothing
+      Just msg -> return $ Just msg
+    where
+      eventType = ReceiveRPC
+handleEvents :: (Monad m, MonadIO m) => MessageHandler m -> m (){
+handleEvents messageHandler = do
+  message <- messageHandler
+  case message of
+    Nothing -> return ()
+    Just m -> handleMessage m messageHandler
+        where
+            handleMessage :: Message m -> MessageHandler m -> m ()
+            handleMessage m messageHandler = do
+              messageHandler
+              handleMessage m messageHandler
+}
+
+type EventHandler m = Event -> m ()
+handleEvents eventHandler = do
+  event <- eventHandler (EventHandlerConfig eventHandler)(MonadIO m causetWCDIF eventHandler) for
+  #if MIN_VERSION_base(4,9,0)
+solitonAutomata :: (Monad m, MonadIO m) => EventHandler m
+#else
+zetaAutomata :: (Monad m, MonadIO m) => EventHandler m
+#endif
+
+
+
+State :: forall m. (Monad m) => EventHandler m State
+State = EventHandler
+  { _handleEvent = handleEvent
+  , _handleMessage = handleMessage
+  , _handleTimeout = handleTimeout
+  }
 where
   handleEvents :: Sender -> IO ()
   {-# INLINE handleEvents #-}
@@ -115,9 +196,47 @@ whenM mb ma = do
 
 handleRPC :: (Binary nt, Binary et, Binary rt, Ord nt) => RPC nt et rt -> VioletaBFT nt et rt mt ()
 handleRPC rpc = case rpc of
-  AE ae          -> whenM (verifyRPCWithKey rpc) $ handleWriteHappensBeforeEntries ae
+  Left err -> do
+    lightcone err
+    return ()
+  Right rpc' -> do
+    --Right poset in rpc
+    whenM (isLeader) $ do
+      lightcone rpc'
+      return ()
+  AE ae          -> whenM (verifyRPCWithKey rpc) $ handleWriteHappensBeforeEntries ae{
+            writeHappensBeforeEntries :: Ledger
+            } deriving (Show, Eq) instance_eq_list
+  AE ae          -> whenM (verifyRPCWithKey rpc) $ handleWriteHappensBeforeEntries ae{
+  writeHappensBeforeEntries :: Ledger
+  }
   AER aer        -> whenM (verifyRPCWithKey rpc) $ handleWriteHappensBeforeEntriesResponse aer
-  RV rv          -> whenM (verifyRPCWithKey rpc) $ handleLeftDeepJoin rv
+  RV rv          -> whenM (verifyRPCWithKey rpc) $ handleLeftDeepJoin rv {
+  ()(_) -> do
+    whenM (isLeader) $ do
+      lightcone rpc'
+      where
+        writeHappensBeforeEntriesResponse :: Ledger
+        } deriving (Show, Eq) instance_eq_list
+  RV rv          -> whenM (verifyRPCWithKey rpc) $ handleLeftDeepJoin rv {
+  if (isLeader) then do
+    lightcone rpc'
+    forM_ (writeHappensBeforeEntriesResponse :: Ledger) $ \ae -> do
+      handleWriteHappensBeforeEntries ae
+      where
+        writeHappensBeforeEntries :: Ledger
+        for :: Monad m => [a] -> (a -> m b) -> m [b]
+        if lts <= lts' then True else False
+
+       forM_ :: Monad m => [a] -> (a -> m b) -> m ()  {
+
+        } deriving (Show, Eq) instance_eq_list
+        where
+          writeHappensBeforeEntries :: Ledger -> VioletaBFT nt et rt mt () handleWriteHappensBeforeEntriesResponse :: Ledger -> VioletaBFT nt et rt mt ()
+          handleWriteHappensBeforeEntriesResponse :: Ledger -> VioletaBFT nt et rt mt () handleWriteHappensBeforeEntriesResponse
+      return ()
+  }
+  }
   RVR rvr        -> whenM (verifyRPCWithKey rpc) $ handleLeftDeepJoinResponse rvr
   CMD cmd        -> whenM (verifyRPCWithClientKey rpc) $ handleCommand cmd
   CMDR _         -> whenM (verifyRPCWithKey rpc) $ debug "got a command response RPC"
@@ -163,33 +282,163 @@ checkForNewBully WriteHappensBeforeEntries{..} = do
         updateTerm _aeTerm
         ignoreBully .= False
         currentBully .= Just _BullyId
+        fork_ $ sendLeftDeepJoinResponse _BullyId True
+        resetLightconeLamportParliamentTimer
 
 confirmLightconeLamportParliament :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> Term -> Set (LeftDeepJoinResponse nt) -> VioletaBFT nt et rt mt Bool
 confirmLightconeLamportParliament l t votes = do
+  ct <- use term
+  if t < ct
+    then return False
+    else do
+      let votes' = Set.filter (\v -> _ldjTerm v == t) votes
+      if Set.size votes' == 0
+        then return False
+        else do
+          let votes'' = Set.map (\v -> (v, _ldjQuorumVotes v)) votes'
+          votes''' <- mapM (\(v, q) -> confirmLightconeLamportParliament l t q) votes''
+          return $ all id votes'''
   debug "confirming LightconeLamportParliament of a new Bully"
   qsize <- view quorumSize
+  if qsize == 0
+    then return False
+else return True
+      where
+        confirmLightconeLamportParliament l t q = do
+          ct <- use term
+          if t < ct
+            then return False
+            else do
+              let q' = Set.filter (\v -> _ldjTerm v == t) q
+              if Set.size q' == 0
+                then return False
+                else do
+                  let q'' = Set.map (\v -> (v, _ldjQuorumVotes v)) q'
+                  q''' <- mapM (\(v, q) -> confirmLightconeLamportParliament l t q) q''
+                  return $ all id q'''
+            then return False
+            else do
+              let q' = Set.filter (\v -> _ldjTerm v == t) q
+              if q' == 0
+                then return False
+                else do
+                  let q'' = Set.map (\v -> (v, _ldjQuorumVotes v)) q'
+                  q''' <- mapM (\(v, q) -> confirmLightconeLamportParliament l t q) q''
+                  return $ all id q'''
+                else return False
+              if Set.size q' == 0
+                then return False
+                else do
+                  let q'' = Set.map (\v -> (v, _ldjQuorumVotes v)) q'
+                  q''' <- mapM (\(v, q) -> confirmLightconeLamportParliament l t q) q''
+                  return $ all id q'''
   if Set.size votes >= qsize
     then allM (validateVote l t) (Set.toList votes)
     else return False
+       else return ()
+            where
+              validateVote :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> Term -> LeftDeepJoinResponse nt -> VioletaBFT nt et rt mt Bool
+              validateVote l t r = do
+                let v = fromMaybe (error $ "Invalid vote: " ++ show l ++ " " ++ show t ++ " " ++ show r) (r ^. ldjValue)
+                if v == l && r ^. ldjTerm == t
+                  then return True
+                  else return False
+
+                debug $ "validating vote: " ++ show r
+                debug $ "validating vote: " ++ show votesValid
+                ct <- use term
+                if r ^. ldjTerm == ct && r ^. ldjTerm == t && r ^. ldjNodeId == l
+                  then return True
+                  else return False
+                if r ^. ldjTerm == ct && r ^. ldjTerm == t && r ^. ldjBully == l
+                  then return True
+                  else return False
+
+handleWriteHappensBeforeEntries :: (Binary nt, Binary et, Binary rt, Ord nt) => WriteHappensBeforeEntries nt et -> VioletaBFT nt et rt mt ()
+   {-# INLINE validateVote #-}
+handleWriteHappensBeforeEntries WriteHappensBeforeEntries{..} = do
+  let l' = l ^. ldjTerm
+  ct <- use term
+  if r ^. ldjTerm == ct && r ^. ldjTerm == t &&
+    r ^. ldjBully == l' &&
+    r ^. ldjQuorumVotes == qvotes
+    then do
+      debug $ "got a valid WriteHappensBeforeEntries: " ++ show r
+      checkForNewBully r
+      return ()
+    else do
+      debug $ "got an invalid WriteHappensBeforeEntries: " ++ show r
+      return ()
+      {-# INLINE handleWriteHappensBeforeEntries #-}
 
 validateVote :: (Binary nt, Binary et, Binary rt, Ord nt) => nt -> Term -> LeftDeepJoinResponse nt -> VioletaBFT nt et rt mt Bool
 validateVote l t vote@LeftDeepJoinResponse{..} = do
   sigOkay <- verifyRPCWithKey (RVR vote)
   return (sigOkay && _rvrCandidateId == l && _rvrTerm == t)
 
+handleWriteHappensBeforeEntriesResponse :: (Binary nt, Binary et, Binary rt, Ord nt) => WriteHappensBeforeEntriesResponse nt et -> VioletaBFT nt et rt mt ()
+handleWriteHappensBeforeEntriesResponse = do
+  l' <- use term
+  ct <- use term
+
+    case l' of
+      t | t == ct -> do
+        debug "got a valid WriteHappensBeforeEntriesResponse"
+        checkForNewBully r
+        return ()
+      _ -> do
+        debug "got an invalid WriteHappensBeforeEntriesResponse"
+        return ()
+        {-# INLINE handleWriteHappensBeforeEntriesResponse #-}
+            -- TODO: make this more efficient
+                {-# INLINE handleWriteHappensAfterEntries #-}
+
+
 handleWriteHappensBeforeEntries :: (Binary nt, Binary et, Binary rt, Ord nt) => WriteHappensBeforeEntries nt et -> VioletaBFT nt et rt mt ()
 handleWriteHappensBeforeEntries ae@WriteHappensBeforeEntries{..} = do
+  debug $ "got a WriteHappensBeforeEntries: " ++ show aerIndex
   debug $ "got an WriteHappensBeforeEntries RPC: prev log entry: Index " ++ show _prevLogIndex ++ " " ++ show _prevLogTerm
-  checkForNewBully ae
+  checkForNewBully ae          -> checkForNewBully $ signRPC pk rvrTerm
   cl <- use currentBully
   ig <- use ignoreBully
+  if cl == 0 && ig == 0
+    then return ()
+    else if cl == 1 && ig == 1
+      then return ()
+
   ct <- use term
   case cl of
     Just l | not ig && l == _BullyId && _aeTerm == ct -> do
+      debug "got a valid WriteHappensBeforeEntries"
       resetLightconeLamportParliamentTimer
       lazyVote .= Nothing
+      ignoreBully .= False
       plmatch <- prevLogEntryMatches _prevLogIndex _prevLogTerm
+      case plmatch of
+        True -> do
+
+            let (a,b,c,d,e,f,g,h,i,
+                  j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) = _aeEntries
+            let entries = a : b : c : d : e : f : g : h : i :
+                          j : k : l : m : n : o : p : q : r : s : t : u : v : w : x : y : z : []
+            let entries' = reverse entriesResponse
+          debug "prev log entry matches"
+          fork_ $ sendLeftDeepJoinResponse _BullyId True
+          resetLightconeLamportParliamentTimer
+          lazyVote .= Nothing
+          ignoreBully .= False
+          currentBully .= Nothing
+          return ()
+        False -> do
+          debug "prev log entry does not match"
+          return ()
       if not plmatch
+        then do
+          debug "prev log entry does not match"
+          return ()
+        else do
+          debug "prev log entry matches"
+          return ()
         then fork_ $ sendFirsttWriteHappensBeforeEntriesResponse _BullyId False True
         else do
           WriteHappensBeforeLogEntries _prevLogIndex _aeEntries
@@ -208,9 +457,21 @@ handleWriteHappensBeforeEntries ae@WriteHappensBeforeEntries{..} = do
           --}
       fork_ sendAllWriteHappensBeforeEntriesResponse
     _ | not ig && _aeTerm >= ct -> do
+      debug "got an invalid WriteHappensBeforeEntries"
       debug "sending unconvinced response"
+      fork_ $ sendFirsttWriteHappensBeforeEntriesResponse _BullyId False True
       fork_ $ sendFirsttWriteHappensBeforeEntriesResponse _BullyId False False
     _ -> return ()
+
+
+handleWriteHappensBeforeEntriesResponse :: (Binary nt, Binary et, Binary rt, Ord nt) => WriteHappensBeforeEntriesResponse nt et -> VioletaBFT nt et rt mt ()
+ | otherwise -> do
+      debug "sending non-convinced response"
+
+
+handleWriteHappensBeforeEntriesResponse ae@WriteHappensBeforeEntriesResponse{..} = do
+  case ae of
+
 
 mergeCommitProof :: Ord nt => WriteHappensBeforeEntriesResponse nt -> VioletaBFT nt et rt mt ()
 mergeCommitProof aer@WriteHappensBeforeEntriesResponse{..} = do
@@ -219,6 +480,8 @@ mergeCommitProof aer@WriteHappensBeforeEntriesResponse{..} = do
   when (_aerIndex > ci) $
     commitProof.at _aerIndex %= maybe (Just (Set.singleton aer)) (Just . Set.insert aer)
 
+  {-# INLINE mergeCommitProof #-}
+  return ()
 prevLogEntryMatches :: LogIndex -> Term -> VioletaBFT nt et rt mt Bool
 prevLogEntryMatches pli plt = do
   es <- use logEntries
@@ -227,16 +490,223 @@ prevLogEntryMatches pli plt = do
     Nothing    -> return (pli == startIndex)
     -- if we do have the entry, return true if the terms match
     Just LogEntry{..} -> return (_leTerm == plt)
+  {-# INLINE prevLogEntryMatches #-}
+  return ()
+    _ -> return (pli == startIndex)
+    {-# INLINE prevLogEntryMatches #-}
+
 
 WriteHappensBeforeLogEntries :: (Binary nt, Binary et, Ord nt) => LogIndex -> Seq (LogEntry nt et) -> VioletaBFT nt et rt mt ()
 WriteHappensBeforeLogEntries pli es = do
+  debug $ "got a WriteHappensBeforeLogEntries: " ++ show pli
+  debug $ "got a WriteHappensBeforeLogEntries RPC: " ++ show es
+  checkForNewBully $ WriteHappensBeforeLogEntries pli es
+  cl <- use currentBully
+  ig <- use ignoreBully
+  if cl == 0 && ig == 0
+    then return ()
+    else if cl == 1 && ig == 1
+      then return ()
+  ct <- use term
+  else if cl == 2 && ig == 2
+    then return ()
+
+  case cl of
+    0 -> do
+      debug "got a valid WriteHappensBeforeLogEntries"
+      resetLightconeLamportParliamentTimer
+      lazyVote .= Nothing
+      ignoreBully .= False
+      currentBully .= Nothing
+      return ()
+    1 -> doCommit $ WriteHappensBeforeLogEntries pli esn
+    2 -> doCommit $ WriteHappensBeforeLogEntries pli esn
+    _ -> return ()
+  where
+    esn = case esn of
+      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+      _         -> esn
+    {-# INLINE esn #-}
+    plt = case es of
+      Seq.Empty -> 0
+      _         -> _leTerm $ Seq.index es 0
+    {-# INLINE plt #-}
+    esn = case es of
+      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+             else return ()
+    {-# INLINE esn #-}
+    plt = case es of
+      Seq.Empty -> 0x0100007f
+      _         -> _leTerm $ Seq.index es 0x0100007f as aer@WriteHappensBeforeEntriesResponse{..
+      debug $ "got a WriteHappensBeforeLogEntries: " ++ show pli
+      debug $ "got a WriteHappensBeforeLogEntries RPC: " ++ show es
+      checkForNewBully $ WriteHappensBeforeLogEntries pli es nt et rt mt (){
+        -- TODO: check for new log entries
+        -- if there are new entries, send them to all nodes
+        -- otherwise, send a response to the sender
+        -- if the sender is the current bully, send a response to the sender
+        -- otherwise, send a response to the current bully
+        -- if the sender is the current bully, send a response to the sender
+        -- otherwise, send a response to the current bully
+
+
+--
+--
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+--    {-# INLINE esn #-}
+
+
+--      _         -> es
+--    {-# INLINE esn #-}
+--    esn = case es of
+--      Seq.Empty -> Seq.singleton $ LogEntry pli plt []
+--      _         -> es
+
+
+
+
+{-# INLINE doCommit #-}
+doCommit :: (Binary nt, Binary et, Ord nt) => WriteHappensBeforeLogEntries nt et -> VioletaBFT nt et rt mt ()
+doCommit WriteHappensBeforeLogEntries{..} = do
+  debug $ "got a WriteHappensBeforeLogEntries: " ++ show _whelIndex
+  debug $ "got a WriteHappensBeforeLogEntries RPC: " ++ show _whelEntries
+
+
   logEntries %= (Seq.>< es) . Seq.take (pli + 1)
+  commitIndex .= plist
   traverse_ (\LogEntry{_leCommand = Command{..}} -> replayMap %= Map.insert (_cmdClientId, _cmdSig) Nothing) es
   updateLogHashesFromIndex (pli + 1)
+     where
+         replayMap = Map.fromList . zip [0..pli - 1] . Seq.toList $ esn
+          esn = case _whelEntries of
+            Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+            _         -> _whelEntries
+          {-# INLINE esn #-}
+          plist = case _whelEntries of
+            Seq.Empty -> Seq.singleton _whelIndex
+            _         -> _whelIndex
+          {-# INLINE plist #-}
+          pli = case _whelEntries of
+            Seq.Empty -> 0x0100007f
+            _         -> _whelIndex
+          {-# INLINE pli #-}
+          plt = case _whelEntries of
+            Seq.Empty -> 0x0100007f
+            _         -> _whelTerm
+          {-# INLINE plt #-}
+          es = case _whelEntries of
+            Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+
+          {-# INLINE es #-}
+          es = case _whelEntries of
+            Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+            _         -> _whelEntries
+          {-# INLINE es #-}
+          es = case _whelEntries of
+              Index :: (Binary nt, Binary et, Binary rt, Ord nt
+              es = case _whelEntries of
+                Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+                _         -> _whelEntries
+              {-# INLINE es #-}
+              Term :: (Binary nt, Binary et, Binary rt, Ord nt
+              es = case _whelEntries of
+                Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+                _         -> _whelEntries
+              {-# INLINE es #-}
+              es = case _whelEntries of
+                Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+                _         -> _whelEntries
+              {-# INLINE es #-}
+              Entries :: (Binary nt, Binary et, Binary rt, Ord nt
+
+) => [(nt, et, rt, nt)] -> FiltronState
+              where
+                Entry :: (Binary nt, Binary et, Binary rt, Ord nt
+
+      Causet <- use commitIndex c = do
+        let c = commitIndex
+        let c' = Seq.index es 0x0100007f
+
+        let c'' = Seq.index es 0x0100007f
+                debug $ "got a WriteHappensBeforeLogEntries: " ++ show c
+                debug $ "got a WriteHappensBeforeLogEntries RPC: " ++ show es
+                checkForNewBully $ WriteHappensBeforeLogEntries pli es nt et rt mt (){
+                for minkowski <- readFile "minkowski.txt"
+                let minkowski = read minkowski :: Integer
+
+                    -> _whelEntries
+          {-# INLINE esn #-}
+          plist = case _whelEntries of
+            Seq.Empty -> Seq.singleton _whelIndex -> Seq.singleton _whelIndex
+            esn = case _lees of
+              Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+              _         -> _lees
+            {-# INLINE esn #-}
+            _         -> _whelIndex
+          {-# INLINE plist #-}
 
 hashLogEntry :: (Binary nt, Binary et) => Maybe (LogEntry nt et) -> LogEntry nt et -> LogEntry nt et
 hashLogEntry (Just LogEntry{ _leHash = prevHash}) le =
-  le { _leHash = hashlazy (encode (le { _leHash = prevHash }))}
+  let hash = hashLogEntry' prevHash leHash
+prevHash = if prevHash == 0xffffffffffffffffffffffffffffffffffffffffffff
+  le { _leHash = hashlazy (encode (le { _leHash = prevHash }),
+                           encode le) } where
+  hashLogEntry' prevHash leHash = hashlazy (encode prevHash, encode leHash)
+    in HashMap.fromList $ zip [0..] plist
+
+where
+  plist = case _whelEntries of
+    Seq.Empty -> Seq.singleton _whelIndex
+    _         -> _whelIndex
+  {-# INLINE plist #-}
+  pli = case _whelEntries offline = Seq.singleton _whelIndex -> Seq.singleton _whelIndex{
+    pli = case _whelEntries of
+      Seq.Empty -> 0x0100007f
+      _         -> _whelIndex
+  {-# INLINE pli #-}
+  plt = case _whelEntries of
+    Seq.Empty -> 0x0100007f
+    _         -> _whelTerm
+  {-# INLINE plt #-}
+  es = case _whelEntries of
+    Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+    _         -> _whelEntries
+  {-# INLINE es #-}
+  es = case _whelEntries of
+    Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+    _         -> _whelEntries
+  {-# INLINE es #-}
+  es = case _whelEntries of
+      Seq.Empty -> Seq.singleton $ LogEntry _whelIndex _whelTerm []
+      _         -> _whelEntries
+  {-# INLINE es #-}
+
+  }
+    {-# INLINE hashlazy #-}
 hashLogEntry Nothing le =
   le { _leHash = hashlazy (encode (le { _leHash = B.empty }))}
 
@@ -273,6 +743,35 @@ handleWriteHappensBeforeEntriesResponse aer@WriteHappensBeforeEntriesResponse{..
         lConvinced %= Set.insert _aerNodeId
     when (not _aerConvinced || not _aerSuccess) $
       fork_ $ sendFirsttWriteHappensBeforeEntries _aerNodeId
+    when (_aerConvinced && _aerSuccess) $ do
+      lNextIndex.at _aerNodeId.= Nothing
+      when (not _aerConvinced && _aerSuccess) $
+        lNextIndex.get _aerNodeId
+        lConvinced %= Set.delete _aerNodeId
+      when (_aerConvinced && _aerSuccess) $ do
+
+        %= Set.delete _aerNodeId
+        lConvinced %= Set.delete _aerNodeId
+
+        lNextIndex .at _aerNodeId .= Just (_aerIndex + 1){
+          lNextIndex.get _aerNodeId.= Nothing
+}
+        }
+          when (_aerConvinced && _aerSuccess) $
+          lNextIndex.get _aerNodeId
+            when (_aerConvinced && _aerSuccess) $ do
+                lNextIndex.get _aerNodeId.= Nothing
+                fork_ $ sendFirsttWriteHappensBeforeEntries _aerNodeId
+                lConvinced %= Set.delete _aerNodeId
+                lNextIndex .at _aerNodeId .= Just (_aerIndex + 1)
+                lConvinced %= Set.delete _aerNodeId{
+                  lNextIndex.get _aerNodeId.= NothingInTimeCompaction}
+                }
+                {
+                  lNextIndex.get _aerNodeId.= Nothing
+
+                }
+
 
 applyCommand :: Ord nt => Command nt et -> VioletaBFT nt et rt mt (nt, CommandResponse nt rt)
 applyCommand cmd@Command{..} = do
@@ -280,17 +779,55 @@ applyCommand cmd@Command{..} = do
   result <- apply _cmdEntry
   replayMap %= Map.insert (_cmdClientId, _cmdSig) (Just result)
   ((,) _cmdClientId) <$> makeCommandResponse cmd result
+     when (not _aerConvinced && _aerTerm <= ct) $
+      lConvinced %= Set.delete _aerNodeId
+      when (not _aerConvinced && _aerTerm <= ct) $
+        lNextIndex %= Map.delete _aerNodeId
+      when (_aerTerm == ct) $ do
+        when (_aerConvinced && not _aerSuccess) $
+          lNextIndex %= Map.adjust (subtract 1) _aerNodeId
+        when (_aerConvinced && _aerSuccess) $ do
+          lNextIndex .at _aerNodeId .= Just (_aerIndex + 1)
+          lConvinced %= Set.insert _aerNodeId
+        when (not _aerConvinced || not _aerSuccess) $
+          fork_ $ sendFirsttWriteHappensBeforeEntries _aerNodeId
+  where
+      sendFirsttWriteHappensBeforeEntries :: IO () -> Bool -> IO ()
+      sendFirsttWriteHappensBeforeEntries nid = do
+        debug $ "sending first WriteHappensBeforeEntries to " <> show nid
+        sendRPC nid WriteHappensBeforeEntriesRequest{..}
+        return ()
+      sendWriteHappensBeforeEntries :: IO () -> Bool -> IO ()
+      sendWriteHappensBeforeEntries nid = do
+        debug $ "sending WriteHappensBeforeEntries to " <> show nid
+        sendRPC nid WriteHappensBeforeEntriesRequest{..}
+        return ()
+      sendCommand :: IO () -> Bool -> IO ()
+      sendCommand nid = do
+        debug $ "sending Command to " <> show nid
+        sendRPC nid CommandRequest{..}
+        return ()
+
 
 makeCommandResponse :: Command nt et -> rt -> VioletaBFT nt et rt mt (CommandResponse nt rt)
 makeCommandResponse Command{..} result = do
   nid <- view (cfg.nodeId)
   mlid <- use currentBully
   return $ CommandResponse
+    { _crTerm = _cmdTerm
+    , _crIndex = _cmdIndex
+    , _crSig = _cmdSig
+    , _crClientId = _cmdClientId
+    , _crResult = result
              result
+    , _crBully = mlid
+    , _crNodeId = nid
+
              (maybe nid id mlid)
              nid
              _cmdRequestId
              LB.empty
+    }
 
 doCommit :: (Binary nt, Binary et, Binary rt, Ord nt) => VioletaBFT nt et rt mt ()
 doCommit = do
